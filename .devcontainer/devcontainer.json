@@ -1,0 +1,28 @@
+{
+	"name": "Industrial Statistics Lab",
+	"dockerFile": "Dockerfile",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"julialang.language-julia",
+				"ms-python.python",
+				"ms-toolsai.jupyter",
+				"REditorSupport.r",
+        		"GitHub.copilot",
+				"ms-toolsai.data-wrangler",
+				"r-lsp.r-lsp",
+				"yzhang.markdown-all-in-one",
+				"ms-python.vscode-pylance",
+				"ms-toolsai.datawrangler"
+			],
+			"settings": {
+				"julia.environmentPath": "/home/scientist/.julia/environments/default",
+				"python.defaultInterpreterPath": "/home/scientist/miniconda3/bin/python",
+				"terminal.integrated.defaultProfile.linux": "bash"
+			}
+		}
+	},
+	"forwardPorts": [8888],
+	"postCreateCommand": "julia -e 'using Pkg; Pkg.activate(\"/home/scientist/.julia/environments/default\"); Pkg.instantiate(); Pkg.precompile();'",
+	"postAttachCommand": "sudo setfacl -R -m u:scientist:rwx /workspaces"
+}

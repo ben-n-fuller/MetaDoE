@@ -1,0 +1,9 @@
+/jupyterhub*
+**/.env
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
+.Trash-*/
+**/*.h5
+.virtual_documents/
+*.code-workspace
+**/*.png
