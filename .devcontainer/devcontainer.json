@@ -1,6 +1,7 @@
 {
 	"name": "Industrial Statistics Lab",
 	"dockerFile": "Dockerfile",
+	"context": "..",
 	"customizations": {
 		"vscode": {
 			"extensions": [

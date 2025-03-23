@@ -1,15 +1,13 @@
 module PSO
 
 include("./types.jl")
-include("../../src/util/tensor_ops.jl")
+include("../src/util/tensor_ops.jl")
 using .PSOTypes
 using .TensorOps
 
 using Distributions
 using LinearAlgebra
 using SparseArrays
-
-export initialize_swarm, optimize, create_hyperparams, create_default_hyperparams, create_runner_params, default_logger
 
 function update_memory(memory::ParticleMemory, fitness::ParticleFitness, state::ParticleState)::ParticleMemory
     # Update best positions
@@ -132,6 +130,10 @@ function initialize_swarm(initializer::Function, objective::Function, constraint
     )
 end
 
+function initialize_swarm(initializer::Function, objective::Function)::Swarm
+    return initialize_swarm(initializer, objective, x -> x, default_hyperparams())
+end
+
 function initialize_runner(world::Swarm)
     return RunnerState(world, 0, 0)
 end
@@ -144,24 +146,33 @@ function global_best_improvement(old_world::Swarm, new_world::Swarm, runner_para
     return abs(new_world.memory.global_best_score - old_world.memory.global_best_score) > runner_params.rel_tol
 end
 
-function optimize(world::Swarm, runner_params::RunnerParams, cb::Function, check_convergence::Function, updater::Function, improved::Function)::RunnerState
+function optimize(world::Swarm, runner_params::RunnerParams, cb::Function, check_convergence::Function, updater::Function, improved::Function)
     runner_state = initialize_runner(world)
+    res = cb(runner_state)
     while check_convergence(runner_state, runner_params)
         new_world = updater(runner_state.swarm, runner_state.stagnation >= runner_params.max_stag, runner_state.iter)
         currently_improved = improved(runner_state.swarm, new_world, runner_params)
         stagnation = currently_improved ? 0 : runner_state.stagnation + 1
         runner_state = RunnerState(new_world, runner_state.iter + 1, stagnation)
-        cb(runner_state)
+        res = cb(runner_state)
     end
-    return runner_state
+    return runner_state, res
 end
 
-function optimize(world::Swarm, runner_params::RunnerParams, cb::Function)::RunnerState
+function optimize(world::Swarm, runner_params::RunnerParams, cb::Function)
     return optimize(world, runner_params, cb, max_iters_or_stagnation, update_state_default, global_best_improvement)
 end
 
-function optimize(world::Swarm, runner_params::RunnerParams)::RunnerState
+function optimize(world::Swarm, runner_params::RunnerParams)
     return optimize(world, runner_params, default_logger(), max_iters_or_stagnation, update_state_default, global_best_improvement)
+end
+
+function optimize(world::Swarm)
+    return optimize(world, default_runner_params(), default_logger(), max_iters_or_stagnation, update_state_default, global_best_improvement)
+end
+
+function optimize(world::Swarm, cb::Function)
+    return optimize(world, default_runner_params(), cb, max_iters_or_stagnation, update_state_default, global_best_improvement)
 end
 
 function create_hyperparams(S, w, c1, c2, num_neighbors)
@@ -172,19 +183,40 @@ function default_hyperparams()
     return create_hyperparams(100, 1/(2*log(2)), 0.5 + log(2), 0.5 + log(2), 3)
 end
 
+function default_runner_params()
+    return RunnerParams(500, 500, 1e-6)
+end
+
 function runner_params(max_iter, max_stag, rel_tol)
     return RunnerParams(max_iter, max_stag, rel_tol)
 end
 
 function default_logger()
-    return (runner_state::RunnerState) -> println("Iteration: ", runner_state.iter, ", Best score: ", runner_state.swarm.memory.global_best_score)
+    function logger(runner_state::RunnerState)
+        println("Iteration: ", runner_state.iter, " Best score: ", runner_state.swarm.memory.global_best_score)
+        return runner_state
+    end
+    return logger
+end
+
+function aggregate_results(;save_world=false)
+    res = []
+    function logger(runner_state::RunnerState)
+        if save_world
+            push!(res, runner_state.swarm)
+        else
+            push!(res, runner_state.swarm.memory.global_best_score)
+        end
+        return res
+    end
+    return logger
 end
 
 function hypercube_constraints(; lower = -1, upper = 1)
     (X) -> clamp.(X, lower, upper)
 end
 
-function get_result(runner_state::RunnerState)
+function get_optimizer(runner_state::RunnerState)
     return runner_state.swarm.memory.global_best, runner_state.swarm.memory.global_best_score
 end
 
