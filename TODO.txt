@@ -1,0 +1,3 @@
+- Modify code so I can optimize in 2/3D (that is, N=1)
+- Use history to make a gif of search behavior
+- Fix hit-and-run sampling
