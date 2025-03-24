@@ -6,13 +6,13 @@ export generate_mixture_design
 
 using LinearAlgebra
 using Random
-using Random
 using Distributions
+using Polyhedra
+using HiGHS
 
 include("../util/tensor_ops.jl")
 using .TensorOps
 
-export make_initializer
 
 function hypercube_initializer(N, K; upper = 1, lower=-1, rng = Random.GLOBAL_RNG)
     (n) -> lower .+ rand(rng, n, N, K) .* (upper - lower)

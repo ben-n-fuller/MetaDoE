@@ -1,7 +1,11 @@
 module HitAndRun 
 
+export hit_and_run
+
+
 using Polyhedra
 using LinearAlgebra
+using Random
 
 function sample_random_direction(num_samples, n)
     v = randn(num_samples, n)
@@ -38,7 +42,7 @@ function get_bounds(A, b, v, d)
 end
 
 
-function hit_and_run_start(A, b, v, n)
+function hit_and_run_start(A, b, v, n, rng)
     n_size = length(v)
     samples = zeros(n, n_size)
 
@@ -57,7 +61,7 @@ function hit_and_run_start(A, b, v, n)
         end
 
         # Sample t uniformly in [t_min, t_max]
-        t = rand() * (t_max - t_min) + t_min
+        t = rand(rng) * (t_max - t_min) + t_min
         v = v + t * d
         sample_count += 1
         samples[sample_count, :] = v
@@ -72,16 +76,16 @@ function get_initial_sample(A, b, lib)
     return center
 end
 
-function hit_and_run(A, b, n, lib; burnin=100)
+function hit_and_run(A, b, n, lib; burnin=100, rng = Random.GLOBAL_RNG)
     # Obtain initial interior point
     v_0 = get_initial_sample(A, b, lib)
 
     # Run burn-in phase
-    burnin_samples = hit_and_run_start(A, b, v_0, burnin)
+    burnin_samples = hit_and_run_start(A, b, v_0, burnin, rng)
 
     # Produce samples
     v = burnin_samples[end, :]
-    return hit_and_run_start(A, b, v, n)
+    return hit_and_run_start(A, b, v, n, rng)
 end
 
 
