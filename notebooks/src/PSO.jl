@@ -86,7 +86,7 @@ function update_memory(memory::ParticleMemory, fitness::ParticleFitness, state::
     memory.particle_best_scores[fitness.scores .< memory.particle_best_scores] .= fitness.scores[fitness.scores .< memory.particle_best_scores]
 
     # Update global best score and position
-    new_global_best = TensorOps.squeeze(memory.particle_best[argmin(memory.particle_best_scores), :, :])
+    new_global_best = memory.particle_best[argmin(memory.particle_best_scores), :, :]
 
     new_best_score = minimum(memory.particle_best_scores)
 
