@@ -255,14 +255,14 @@ function create_objective(obj::Function)::Objective
 end
 
 function get_penalty_enforcer(constraints::ConstraintEnforcement.ConstraintEnforcer)
-    Objective((X_prev, X_curr, t) -> X_curr, (X_prev, X_curr, t) -> obj(X_prev) .+ ConstraintEnforcement.make_enforcer(constraints))
+    Objective((X_prev, X_curr, t) -> X_curr, (X_prev, X_curr, t) -> obj(X_prev) .+ ConstraintEnforcement.make_enforcer_func(constraints))
 end
 
 function create_objective(obj::Function, constraints::ConstraintEnforcement.ConstraintEnforcer)::Objective
     @match constraints begin
         ConstraintEnforcement.PenaltyEnforcer(linear_constraints) => get_penalty_enforcer(constraints)
-        ConstraintEnforcement.ResampleEnforcer(linear_constraints, initializer) => Objective(ConstraintEnforcement.make_enforcer(constraints), (X_prev, X_curr, t) -> obj(X_curr))
-        ConstraintEnforcement.LinearEnforcer(linear_constraints) => Objective(ConstraintEnforcement.make_enforcer(constraints), (X_prev, X_curr, t) -> obj(X_curr))
+        ConstraintEnforcement.ResampleEnforcer(linear_constraints, initializer) => Objective(ConstraintEnforcement.make_enforcer_func(constraints), (X_prev, X_curr, t) -> obj(X_curr))
+        ConstraintEnforcement.LinearEnforcer(linear_constraints) => Objective(ConstraintEnforcement.make_enforcer_func(constraints), (X_prev, X_curr, t) -> obj(X_curr))
     end
 end
 

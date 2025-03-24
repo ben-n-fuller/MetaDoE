@@ -33,7 +33,7 @@ struct PenaltyEnforcer <: ConstraintEnforcer
     constraints::LinearConstraints
 end
 
-function make_enforcer(enforcer::ConstraintEnforcer)::Function
+function make_enforcer_func(enforcer::ConstraintEnforcer)::Function
     @match enforcer begin 
         ResampleEnforcer(constraints, initializer) =>
             (X_prev, X_curr, t) -> resample_violating_rows!(X_curr, constraints, initializer)
@@ -47,7 +47,6 @@ function make_enforcer(enforcer::ConstraintEnforcer)::Function
         _ => error("Unsupported enforcer type: $(typeof(enforcer))")
     end
 end
-
 
 function compute_constraint_violations(X, constraints::LinearConstraints)
     n, N, K = size(X)

@@ -1,6 +1,5 @@
 module Experiments
 
-using ..Designs
 using ..ConstraintEnforcement
 
 using Random
@@ -123,14 +122,6 @@ function with_linear_constraints(exp::Experiment, constraint::Array{Float64, 2},
             Experiment(exp.factors, new_constraints, exp.N, exp.K)
         end
 
-        _ => error("Unsupported constraint type: $(typeof(exp.constraints))")
-    end
-end
-
-function get_initializer(exp::Experiment; rng = Random.GLOBAL_RNG)
-    @match exp.constraints begin
-        ConstraintEnforcement.LinearConstraints(A, b) => Designs.constrained_initializer(exp.N, exp.constraints.A, exp.constraints.b; rng = rng)
-        ConstraintEnforcement.NoConstraints() => Designs.hypercube_initializer(exp.N, exp.K; rng = rng)
         _ => error("Unsupported constraint type: $(typeof(exp.constraints))")
     end
 end
