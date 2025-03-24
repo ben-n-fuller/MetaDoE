@@ -9,7 +9,6 @@ using MLStyle
 
 using ..TensorOps
 using ..HitAndRun
-using ..Experiments
 using ..ConstraintEnforcement
 
 
@@ -30,18 +29,19 @@ end
 function constrained_initializer(N, A, b; rng = Random.GLOBAL_RNG, burnin = 100)
     lib = DefaultLibrary{Float64}(HiGHS.Optimizer)
     K = size(A, 2)
+    v_0 = HitAndRun.get_initial_sample(A, b, lib)
     function sample_constraints(n)
-        X = HitAndRun.hit_and_run(A, b, N * n, lib; burnin = burnin, rng = rng)
+        X = HitAndRun.hit_and_run(A, b, N * n, lib; v_0 = v_0, burnin = burnin, rng = rng)
         return reshape(X, (n, N, K))
     end
     return sample_constraints
 end
 
-function create_initializer(experiment::Experiments.Experiment; rng = Random.GLOBAL_RNG)
-    @match experiment.constraints begin
-        ConstraintEnforcement.LinearConstraints(A, b) => Designs.constrained_initializer(experiment.N, experiment.constraints.A, experiment.constraints.b; rng = rng)
-        ConstraintEnforcement.NoConstraints() => Designs.hypercube_initializer(experiment.N, experiment.K; rng = rng)
-        _ => error("Unsupported constraint type: $(typeof(experiment.constraints))")
+function create_initializer(constraints::ConstraintEnforcement.Constraints, N::Int64, K::Int64; rng = Random.GLOBAL_RNG)
+    @match constraints begin
+        ConstraintEnforcement.LinearConstraints(A, b) => Designs.constrained_initializer(N, constraints.A, constraints.b; rng = rng)
+        ConstraintEnforcement.NoConstraints() => Designs.hypercube_initializer(N, K; rng = rng)
+        _ => error("Unsupported constraint type: $(typeof(constraints))")
     end
 end
 

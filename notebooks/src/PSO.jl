@@ -3,11 +3,13 @@ module PSO
 using ..TensorOps
 using ..ConstraintEnforcement
 using ..Experiments
+using ..Designs
 
 using Distributions
 using LinearAlgebra
 using SparseArrays
 using MLStyle
+using Random
 
 # State update hyperparameters
 struct HyperParams 
@@ -186,7 +188,7 @@ function initialize_swarm(initializer::Function, objective::Objective, params::H
     particle_state = ParticleState(particles, velocities)
     neighbors = create_adjacency_matrix(params.num_particles, params.num_neighbors)
     scores = objective.objective(particles, particles, 0)
-    memory = ParticleMemory(particles, particles, scores, particles[argmin(scores), :, :], minimum(scores), )
+    memory = ParticleMemory(particles, particles, scores, particles[argmin(scores), :, :], minimum(scores))
     fitness = ParticleFitness(scores)
     return Swarm(
         particle_state, 
@@ -198,10 +200,32 @@ function initialize_swarm(initializer::Function, objective::Objective, params::H
     )
 end
 
-function initialize_swarm(initializer::Function, objective::Function)::Swarm
-    return initialize_swarm(initializer, objective, default_hyperparams())
+
+function get_enforcer(enforcer_type::ConstraintEnforcement.EnforcerType, experiment::Experiments.Experiment, initializer::Function)
+    if enforcer_type == ConstraintEnforcement.Linear
+        return  ConstraintEnforcement.LinearEnforcer(experiment.constraints)
+    elseif enforcer_type == ConstraintEnforcement.Resample 
+        return ConstraintEnforcement.ResampleEnforcer(experiment.constraints, initializer)
+    end
+
+    return ConstraintEnforcement.PenaltyEnforcer(experiment.constraints)
 end
 
+function create_context(
+    experiment::Experiments.Experiment, 
+    objective::Function; 
+    hyperparams = default_hyperparams(), 
+    runner_params = default_runner_params(),
+    callback = default_logger(),
+    rng = Random.GLOBAL_RNG,
+    enforcer_type = ConstraintEnforcement.Linear)
+    initializer = Designs.create_initializer(experiment.constraints, experiment.N, experiment.K; rng = rng)
+    enforcer = get_enforcer(enforcer_type, experiment, initializer)
+    objective = PSO.create_objective(objective, enforcer)
+    swarm = PSO.initialize_swarm(initializer, objective, hyperparams)
+    context = OptimizationContext(swarm, runner_params, callback, max_iters_or_stagnation, update_state_default, global_best_improvement)
+    return context
+end
 
 function max_iters_or_stagnation(runner::RunnerState, params::RunnerParams)
     return runner.iter < params.max_iter && runner.stagnation < params.max_stag
@@ -222,18 +246,6 @@ function optimize(context::OptimizationContext)
         res = context.callback(runner_state)
     end
     return runner_state, res
-end
-
-function create_context(world::Swarm, runner_params::RunnerParams, cb::Function)::OptimizationContext
-    return OptimizationContext(world, runner_params, cb, max_iters_or_stagnation, update_state_default, global_best_improvement)
-end
-
-function create_context(world::Swarm)::OptimizationContext
-    return OptimizationContext(world, default_runner_params(), default_logger(), max_iters_or_stagnation, update_state_default, global_best_improvement)
-end
-
-function create_context(world::Swarm, cb::Function)::OptimizationContext
-    return OptimizationContext(world, default_runner_params(), cb, max_iters_or_stagnation, update_state_default, global_best_improvement)
 end
 
 function create_hyperparams(S, w, c1, c2, num_neighbors)::HyperParams

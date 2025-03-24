@@ -1,8 +1,5 @@
 module HitAndRun 
 
-export hit_and_run
-
-
 using Polyhedra
 using LinearAlgebra
 using Random
@@ -76,9 +73,11 @@ function get_initial_sample(A, b, lib)
     return center
 end
 
-function hit_and_run(A, b, n, lib; burnin=100, rng = Random.GLOBAL_RNG)
+function hit_and_run(A, b, n, lib; burnin=100, rng = Random.GLOBAL_RNG, v_0 = nothing)
     # Obtain initial interior point
-    v_0 = get_initial_sample(A, b, lib)
+    if v_0 === nothing
+        v_0 = get_initial_sample(A, b, lib)
+    end
 
     # Run burn-in phase
     burnin_samples = hit_and_run_start(A, b, v_0, burnin, rng)

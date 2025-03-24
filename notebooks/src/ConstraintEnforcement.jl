@@ -33,6 +33,8 @@ struct PenaltyEnforcer <: ConstraintEnforcer
     constraints::LinearConstraints
 end
 
+@enum EnforcerType Linear Penalty Resample
+
 function make_enforcer_func(enforcer::ConstraintEnforcer)::Function
     @match enforcer begin 
         ResampleEnforcer(constraints, initializer) =>
