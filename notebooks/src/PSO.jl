@@ -48,11 +48,10 @@ end
 # Global state of the particle swarm
 struct Swarm
     state::ParticleState
-    neighbors
+    neighbors::SparseArrays.SparseMatrixCSC{Bool, Int64}
     fitness::ParticleFitness  
     memory::ParticleMemory
     params::HyperParams
-    objective::Objective
 end
 
 # State of the optimization runner
@@ -76,6 +75,7 @@ struct OptimizationContext
     check_convergence::Function
     updater::Function 
     improved::Function 
+    objective::Objective
 end
 
 function update_memory(memory::ParticleMemory, fitness::ParticleFitness, state::ParticleState, old_state::ParticleState)::ParticleMemory
@@ -120,7 +120,7 @@ function default_inertia(world::Swarm)
     return world.params.w * world.state.velocities
 end
 
-function update_vel_pos(world::Swarm, social::Function, cognitive::Function, inertia::Function, t::Int64)::ParticleState
+function update_vel_pos(world::Swarm, objective::Objective, social::Function, cognitive::Function, inertia::Function, t::Int64)::ParticleState
     # Update velocities with inertia, cognitive and social components
     particle_inertia = inertia(world)
     cognitive = cognitive(world)
@@ -132,10 +132,10 @@ function update_vel_pos(world::Swarm, social::Function, cognitive::Function, ine
     # Update particle positions
     new_particle_pos = world.state.positions .+ new_velocities
 
-    # Apply constraints in place
-    world.objective.enforcer(world.state.positions, new_particle_pos, t)
+    # Apply constraints
+    constrained_positions = objective.enforcer(world.state.positions, new_particle_pos, t)
 
-    return ParticleState(new_particle_pos, new_velocities)
+    return ParticleState(constrained_positions, new_velocities)
 end
 
 function create_adjacency_matrix(num_particles, num_neighbors)
@@ -153,16 +153,16 @@ end
 
 function update_neighbors(world::Swarm)::Swarm
     neighbs = create_adjacency_matrix(swarm.params.num_particles, swarm.params.num_neighbors)
-    return Swarm(world.state, neighbs, world.fitness, world.memory, world.params, world.objective)
+    return Swarm(world.state, neighbs, world.fitness, world.memory, world.params)
 end
 
 function update_swarm(world::Swarm, state::ParticleState, fitness::ParticleFitness, memory::ParticleMemory)::Swarm
-    return Swarm(state, world.neighbors, fitness, memory, world.params, world.objective)
+    return Swarm(state, world.neighbors, fitness, memory, world.params)
 end
 
-function update_state_default(world::Swarm, stagnant::Bool, t::Int)::Swarm
-    new_state = update_vel_pos(world, global_best_social, particle_best_cognitive, default_inertia, t)
-    new_fitness = update_fitness(new_state, world.objective.objective, t)
+function update_state_default(world::Swarm, objective::Objective, stagnant::Bool, t::Int)::Swarm
+    new_state = update_vel_pos(world, objective, global_best_social, particle_best_cognitive, default_inertia, t)
+    new_fitness = update_fitness(new_state, objective.objective, t)
     new_memory = update_memory(world.memory, new_fitness, new_state, world.state)
     new_world = update_swarm(world, new_state, new_fitness, new_memory)
     if stagnant
@@ -171,9 +171,9 @@ function update_state_default(world::Swarm, stagnant::Bool, t::Int)::Swarm
     return new_world
 end
 
-function update_state_neighbors(world::Swarm, stagnant::Bool, t::Int)::Swarm
+function update_state_neighbors(world::Swarm, objective::Objective, stagnant::Bool, t::Int)::Swarm
     new_state = update_vel_pos_neighbors(world)
-    new_fitness = update_fitness(new_state, world.objective.objective, t)
+    new_fitness = update_fitness(new_state, objective.objective, t)
     new_memory = update_memory(world.memory, new_fitness, new_state, world.state)
     new_world = update_swarm(world, new_state, new_fitness, new_memory)
     if stagnant
@@ -195,8 +195,7 @@ function initialize_swarm(initializer::Function, objective::Objective, params::H
         neighbors, 
         fitness,
         memory,
-        params,
-        objective
+        params
     )
 end
 
@@ -221,10 +220,17 @@ function create_context(
     enforcer_type = ConstraintEnforcement.Linear)
     initializer = Designs.create_initializer(experiment.constraints, experiment.N, experiment.K; rng = rng)
     enforcer = get_enforcer(enforcer_type, experiment, initializer)
-    objective = PSO.create_objective(objective, enforcer)
-    swarm = PSO.initialize_swarm(initializer, objective, hyperparams)
-    context = OptimizationContext(swarm, runner_params, callback, max_iters_or_stagnation, update_state_default, global_best_improvement)
-    return context
+    new_objective = PSO.create_objective(objective, enforcer)
+    swarm = PSO.initialize_swarm(initializer, new_objective, hyperparams)
+    return OptimizationContext(
+        swarm, 
+        runner_params, 
+        callback, 
+        max_iters_or_stagnation, 
+        update_state_default, 
+        global_best_improvement, 
+        new_objective
+    )
 end
 
 function max_iters_or_stagnation(runner::RunnerState, params::RunnerParams)
@@ -239,7 +245,7 @@ function optimize(context::OptimizationContext)
     runner_state = RunnerState(context.initial_world, 0, 0)
     res = context.callback(runner_state)
     while context.check_convergence(runner_state, context.runner_params)
-        new_world = context.updater(runner_state.swarm, runner_state.stagnation >= context.runner_params.max_stag, runner_state.iter)
+        new_world = context.updater(runner_state.swarm, context.objective, runner_state.stagnation >= context.runner_params.max_stag, runner_state.iter)
         currently_improved = context.improved(runner_state.swarm, new_world, context.runner_params)
         stagnation = currently_improved ? 0 : runner_state.stagnation + 1
         runner_state = RunnerState(new_world, runner_state.iter + 1, stagnation)
@@ -250,6 +256,10 @@ end
 
 function create_hyperparams(S, w, c1, c2, num_neighbors)::HyperParams
     return HyperParams(S, w, c1, c2, num_neighbors)
+end
+
+function create_hyperparams(S::Int64)::HyperParams
+    return create_hyperparams(S, 1/(2*log(2)), 0.5 + log(2), 0.5 + log(2), 3)
 end
 
 @enum EnforcerType LinearIntersection Resample Penalty
@@ -266,13 +276,14 @@ function create_objective(obj::Function)::Objective
     return Objective((X_prev, X_curr, t) -> X_curr, (X_prev, X_curr, t) -> obj(X_curr))
 end
 
-function get_penalty_enforcer(constraints::ConstraintEnforcement.ConstraintEnforcer)
-    Objective((X_prev, X_curr, t) -> X_curr, (X_prev, X_curr, t) -> obj(X_prev) .+ ConstraintEnforcement.make_enforcer_func(constraints))
+function get_penalty_enforcer(obj::Function, constraints::ConstraintEnforcement.ConstraintEnforcer)
+    enforcer_func = ConstraintEnforcement.make_enforcer_func(constraints)
+    Objective((X_prev, X_curr, t) -> X_curr, (X_prev, X_curr, t) -> obj(X_prev) .+ enforcer_func(X_prev, X_curr, t))
 end
 
 function create_objective(obj::Function, constraints::ConstraintEnforcement.ConstraintEnforcer)::Objective
     @match constraints begin
-        ConstraintEnforcement.PenaltyEnforcer(linear_constraints) => get_penalty_enforcer(constraints)
+        ConstraintEnforcement.PenaltyEnforcer(linear_constraints) => get_penalty_enforcer(obj, constraints)
         ConstraintEnforcement.ResampleEnforcer(linear_constraints, initializer) => Objective(ConstraintEnforcement.make_enforcer_func(constraints), (X_prev, X_curr, t) -> obj(X_curr))
         ConstraintEnforcement.LinearEnforcer(linear_constraints) => Objective(ConstraintEnforcement.make_enforcer_func(constraints), (X_prev, X_curr, t) -> obj(X_curr))
     end
@@ -281,6 +292,7 @@ end
 function default_hyperparams()::HyperParams
     return create_hyperparams(100, 1/(2*log(2)), 0.5 + log(2), 0.5 + log(2), 3)
 end
+
 
 function default_runner_params()::RunnerParams
     return RunnerParams(500, 500, 1e-6)

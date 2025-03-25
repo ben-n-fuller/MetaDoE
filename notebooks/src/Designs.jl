@@ -26,7 +26,7 @@ function mixture_initializer(N, K; rng = Random.GLOBAL_RNG)
     (n) -> init_mixture_design(N, K, rng, n = n)
 end
 
-function constrained_initializer(N, A, b; rng = Random.GLOBAL_RNG, burnin = 100)
+function constrained_initializer(N, A, b; rng = Random.GLOBAL_RNG, burnin = 1000)
     lib = DefaultLibrary{Float64}(HiGHS.Optimizer)
     K = size(A, 2)
     v_0 = HitAndRun.get_initial_sample(A, b, lib)

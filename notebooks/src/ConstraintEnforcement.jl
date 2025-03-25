@@ -38,10 +38,10 @@ end
 function make_enforcer_func(enforcer::ConstraintEnforcer)::Function
     @match enforcer begin 
         ResampleEnforcer(constraints, initializer) =>
-            (X_prev, X_curr, t) -> resample_violating_rows!(X_curr, constraints, initializer)
+            (X_prev, X_curr, t) -> resample_violating_rows(X_curr, constraints, initializer)
 
         LinearEnforcer(constraints) =>
-            (X_prev, X_curr, t) -> repair_linear_intersect!(X_curr, X_prev, constraints)
+            (X_prev, X_curr, t) -> repair_linear_intersect(X_prev, X_curr, constraints)
 
         PenaltyEnforcer(constraints) =>
             (X_prev, X_curr, t) -> apply_penalty(X_curr, constraints)
@@ -80,10 +80,10 @@ function apply_penalty(X, constraints::LinearConstraints)
     # Sum across all design points per candidate
     total_violation_per_particle = vec(sum(violation_sums_2d, dims=2)) ./ (N * m)
 
-    return constraints.λ * total_violation_per_particle
+    return 0.5 * total_violation_per_particle
 end
 
-function resample_violating_rows!(X, constraints::LinearConstraints, initializer::Function)
+function resample_violating_rows(X, constraints::LinearConstraints, initializer::Function)
     n, N, K = size(X)
 
     # Compute constraint violations
@@ -96,71 +96,128 @@ function resample_violating_rows!(X, constraints::LinearConstraints, initializer
 
     p = sum(violating_particles)
 
+    X_res = copy(X)
+
     # Re-sample
-    X[violating_particles, :, :] .= initializer(p)
+    X_res[violating_particles, :, :] .= initializer(p)
 
-    return p
+    return X_res
 end
 
-function linear_intersection(A, b, x_int, x_ext)
+# function linear_intersection(A, b, x_int, x_ext)
 
-    # Identify which rows of A are violated
-    violated = (A * x_ext) .> b
+#     # Identify which rows of A are violated
+#     violated = (A * x_ext) .> b
 
-    # If none violated, return x_ext
-    if !any(violated)
-        return x_ext
-    end
+#     # If none violated, return x_ext
+#     if !any(violated)
+#         return x_ext
+#     end
 
-    # Solve for lambda for each of the violated constraints
-    A_violated = A[violated, :]
-    b_violated = b[violated]
-    numerator = b_violated .- (A_violated * x_int)
-    denominator = A_violated * (x_ext .- x_int)
+#     # Solve for lambda for each of the violated constraints
+#     A_violated = A[violated, :]
+#     b_violated = b[violated]
+#     numerator = b_violated .- (A_violated * x_int)
+#     denominator = A_violated * (x_ext .- x_int)
 
-    # If denominator has any zero, handle or skip accordingly
-    λ_vec = numerator ./ denominator
+#     # If denominator has any zero, handle or skip accordingly
+#     λ_vec = numerator ./ denominator
 
-    # Find the minimizing lambda
-    λ_min = minimum(λ_vec)
+#     # Find the minimizing lambda
+#     λ_min = minimum(λ_vec)
 
-    # Return the intersection point
-    return x_int .+ λ_min .* (x_ext .- x_int)
-end
+#     # Return the intersection point
+#     return x_int .+ λ_min .* (x_ext .- x_int)
+# end
 
-function repair_linear_intersect!(X_int, X_ext, constraints::LinearConstraints)
-    A = constraints.A
-    b = constraints.b 
+# function repair_linear_intersect!(X_int, X_ext, constraints::LinearConstraints)
+#     A = constraints.A
+#     b = constraints.b 
 
+#     n, N, K = size(X_int)
+
+#     # Flatten to (n*N, K) so each design point is a row
+#     X_int_2d = reshape(X_int, n*N, K)
+#     X_ext_2d = reshape(X_ext, n*N, K)
+
+#     # Identify violating design points
+#     violation_mat = A * X_ext_2d' .- b
+#     clamped = max.(violation_mat, 0)
+
+#     # Create a mask for violating rows
+#     is_violating = vec(any(clamped .> 0, dims=1))
+
+#     # Loop over violating rows
+#     violating_indices = findall(is_violating)
+#     for i in violating_indices
+#         # Extract the row
+#         x_int_row = @view X_int_2d[i, :]
+#         x_ext_row = @view X_ext_2d[i, :]
+
+#         # Repair that row
+#         x_repaired = linear_intersection(A, b, x_int_row, x_ext_row)
+
+#         # In-place update
+#         x_ext_row .= x_repaired
+#     end
+
+#     X_ext .= reshape(X_ext_2d, n, N, K)
+#     return sum(is_violating)
+# end
+
+function repair_linear_intersect(
+    X_int::Array{Float64,3},
+    X_ext::Array{Float64,3},
+    constraints::LinearConstraints
+)
+    A = constraints.A   # shape (m, K)
+    b = constraints.b   # shape (m)
+    
+    # Flatten and transpose input to simplify constraint computations
+    # Now each row is a design point
     n, N, K = size(X_int)
-
-    # Flatten to (n*N, K) so each design point is a row
-    X_int_2d = reshape(X_int, n*N, K)
-    X_ext_2d = reshape(X_ext, n*N, K)
+    X_int_flat = reshape(X_int, n*N, K)'  # (K, n*N)
+    X_ext_flat = reshape(X_ext, n*N, K)'  # (K, n*N)
 
     # Identify violating design points
-    violation_mat = A * X_ext_2d' .- b
-    clamped = max.(violation_mat, 0)
+    violation_mat  = A * X_ext_flat .- b # (m, n*N)
+    violation_mask = violation_mat .> 0 # (m, n*N)
 
-    # Create a mask for violating rows
-    is_violating = vec(any(clamped .> 0, dims=1))
-
-    # Loop over violating rows
-    violating_indices = findall(is_violating)
-    for i in violating_indices
-        # Extract the row
-        x_int_row = @view X_int_2d[i, :]
-        x_ext_row = @view X_ext_2d[i, :]
-
-        # Repair that row
-        x_repaired = linear_intersection(A, b, x_int_row, x_ext_row)
-
-        # In-place update
-        x_ext_row .= x_repaired
+    # Shortcut if no violations
+    if !any(violation_mask)
+        return copy(X_ext)
     end
 
-    X_ext .= reshape(X_ext_2d, n, N, K)
-    return sum(is_violating)
+    # Compute projection
+    # numerator[i,j]   = b[i] - A[i,:] * X_int_j
+    # denominator[i,j] = A[i,:] * (X_ext_j - X_int_j)
+    numerator   = b .- (A * X_int_flat)     # (m, n*N)
+    direction = X_ext_flat .- X_int_flat    # (K, n*N)
+    denominator = A * direction             # (m, n*N)
+
+    # Solve for λ
+    # For non-violating rows, assign Inf
+    λ_all = fill(Inf, size(numerator))  # shape: (m, n*N)
+    λ_all[violation_mask] .= numerator[violation_mask] ./ denominator[violation_mask]
+
+
+    # Find the min λ across all constraints
+    λ_min_per_row = minimum(λ_all, dims=1)  # shape (1, n*N)
+
+    # Any non-violating rows will be set to Inf
+    # Leave these in their current position
+    is_violating_row = vec(any(violation_mask, dims=1))  # (n*N)
+    λ_min_per_row[1, .!is_violating_row] .= 1.0
+
+    # Repair the violating points by interpolating with λ_min
+    X_repaired_flat = X_int_flat .+ direction .* λ_min_per_row
+
+    # Reshape to original dimensions
+    X_repaired_2d = X_repaired_flat'                    # (n*N, K)
+    X_repaired = reshape(X_repaired_2d, n, N, K)        # (n, N, K)
+
+    return X_repaired
 end
+
 
 end # module

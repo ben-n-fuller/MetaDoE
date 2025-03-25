@@ -7,3 +7,5 @@ notebooks/.ipynb_checkpoints/
 .virtual_documents/
 *.code-workspace
 **/*.png
+**/*.gif
+**/*.npy
