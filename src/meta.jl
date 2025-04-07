@@ -2,7 +2,7 @@ module MetaDoE
 
 include("doe/models.jl")
 include("doe/designs.jl")
-include("doe/objectives.jl")
+include("optim/objectives.jl")
 include("util/tensor_ops.jl")
 include("util/distributed_jobs.jl")
 

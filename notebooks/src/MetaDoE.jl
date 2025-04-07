@@ -7,6 +7,7 @@ include("./Experiments.jl")
 include("./Designs.jl")
 include("./Objectives.jl")
 include("./PSO.jl")
+include("./Models.jl")
 
 using .TensorOps
 using .HitAndRun
@@ -15,5 +16,6 @@ using .ConstraintEnforcement
 using .Experiments 
 using .Objectives
 using .PSO 
+using .Models
 
 end

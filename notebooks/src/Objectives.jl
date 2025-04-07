@@ -5,13 +5,25 @@ using ..TensorOps
 using SpecialFunctions
 using LinearAlgebra
 
-function d_criterion(X::Array{Float64, 2})
-    score = abs(det(X' * X))
-    return score == 0 ? Inf : 1 / score
+function D_mat(F)
+    M = F' * F
+    L = cholesky(M).L
+    return -2 * sum(log.(diag(L)))
 end
 
-function D(X::Array{Float64, 3})
-    TensorOps.squeeze(mapslices(d_criterion, X, dims=[2, 3]))
+function A_mat(F)
+    M = F' * F
+    L = cholesky(M).L
+    Linv = inv(L)
+    return norm(Linv, 2)^2
+end
+
+function A(F)
+    map(A_mat, eachslice(F; dims=1))
+end
+
+function D(F)
+    map(D_mat, eachslice(F; dims=1))
 end
 
 function rastrigin(X::Array{Float64, 3})
