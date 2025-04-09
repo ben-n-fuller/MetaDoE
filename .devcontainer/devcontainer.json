@@ -8,10 +8,8 @@
 				"julialang.language-julia",
 				"ms-python.python",
 				"ms-toolsai.jupyter",
-				"REditorSupport.r",
         		"GitHub.copilot",
 				"ms-toolsai.data-wrangler",
-				"r-lsp.r-lsp",
 				"yzhang.markdown-all-in-one",
 				"ms-python.vscode-pylance",
 				"ms-toolsai.datawrangler"

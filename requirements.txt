@@ -5,5 +5,5 @@ scipy
 seaborn
 scikit-learn
 h5py
-scprep
-phate
+# scprep
+# phate

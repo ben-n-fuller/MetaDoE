@@ -9,7 +9,6 @@ RUN apt-get update && apt-get install -y \
     curl \
     git \
     acl \
-    r-base \
     python3-dev \
     libcurl4-openssl-dev \
     libssl-dev \
@@ -62,10 +61,6 @@ RUN julia -e 'using Pkg; Pkg.activate("/home/scientist/.julia/environments/defau
 # Install additional python requirements
 COPY requirements.txt .
 RUN pip install -r requirements.txt
-
-# Install IRKernel and other R packages
-# COPY requirements.R .
-# RUN Rscript requirements.R
 
 # Expose the port
 EXPOSE 8888

@@ -10,6 +10,7 @@ using LinearAlgebra
 using SparseArrays
 using MLStyle
 using Random
+using NPZ
 
 # State update hyperparameters
 struct HyperParams 
@@ -325,6 +326,28 @@ end
 
 function get_optimizer(runner_state::RunnerState)
     return runner_state.swarm.memory.global_best, runner_state.swarm.memory.global_best_score
+end
+
+function save_history(history::Vector; location = "pso.npy")
+    velocities = cat([h.state.velocities for h in history]...; dims=2)
+    velocities = permutedims(velocities, (2, 1, 3))
+
+    positions = cat([h.state.positions for h in history]...; dims=2)
+    positions = permutedims(positions, (2, 1, 3))
+
+    scores = cat([h.fitness.scores for h in history]...; dims=2)'
+    npzwrite(location, Dict("positions" => positions, "velocities" => velocities, "scores" => scores))
+end
+
+function save_history_3d(history::Vector; location = "pso.npy")
+    velocities = cat([h.state.velocities for h in history]...; dims=4)
+    velocities = permutedims(velocities, (4, 1, 2, 3))
+
+    positions = cat([h.state.positions for h in history]...; dims=4)
+    positions = permutedims(positions, (4, 1, 2, 3))
+
+    scores = cat([h.fitness.scores for h in history]...; dims=2)'
+    npzwrite(location, Dict("positions" => positions, "velocities" => velocities, "scores" => scores))
 end
 
 end # module
