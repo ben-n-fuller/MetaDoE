@@ -42,7 +42,7 @@ RUN ARCH=$(uname -m) && \
 # Add Conda to the path
 ENV PATH="/home/scientist/miniconda3/bin:$PATH"
 
-RUN conda install -y notebook
+RUN conda install -y python=3.11.2 notebook
 
 # Install Julia
 RUN curl -fsSL https://install.julialang.org | sh -s -- -y

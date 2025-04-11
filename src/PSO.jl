@@ -202,7 +202,7 @@ end
 
 
 function get_enforcer(enforcer_type::ConstraintEnforcement.EnforcerType, experiment::Experiments.Experiment, initializer::Function)
-    if enforcer_type == ConstraintEnforcement.Linear
+    if enforcer_type == ConstraintEnforcement.Parametric
         return  ConstraintEnforcement.LinearEnforcer(experiment.constraints)
     elseif enforcer_type == ConstraintEnforcement.Resample 
         return ConstraintEnforcement.ResampleEnforcer(experiment.constraints, initializer)
@@ -218,7 +218,7 @@ function create_context(
     runner_params = default_runner_params(),
     callback = default_logger(),
     rng = Random.GLOBAL_RNG,
-    enforcer_type = ConstraintEnforcement.Linear)
+    enforcer_type = ConstraintEnforcement.Parametric)
     initializer = Designs.create_initializer(experiment.constraints, experiment.N, experiment.K; rng = rng)
     enforcer = get_enforcer(enforcer_type, experiment, initializer)
     new_objective = PSO.create_objective(objective, enforcer)

@@ -84,8 +84,6 @@ function with_factor_ratio(exp::Experiment, factor1_index::Int64, factor2_index:
 end
 
 function with_linear_constraint(exp::Experiment, constraint::Vector{Float64}, bound::Float64)
-    @assert length(constraint) == exp.K "Constraint vector must have length equal to number of factors (K = $(exp.K))"
-
     @match exp.constraints begin
         ConstraintEnforcement.LinearConstraints(A, b) => begin
             new_A = vcat(A, constraint')
@@ -106,9 +104,6 @@ function with_linear_constraint(exp::Experiment, constraint::Vector{Float64}, bo
 end
 
 function with_linear_constraints(exp::Experiment, constraint::Array{Float64, 2}, bound::Vector{Float64})
-    @assert size(constraint, 2) == exp.K "Constraint matrix must have K columns (K = $(exp.K))"
-    @assert size(constraint, 1) == length(bound) "Number of rows in constraint matrix must match length of bound vector"
-
     @match exp.constraints begin
         ConstraintEnforcement.LinearConstraints(A, b) => begin
             new_A = vcat(A, constraint)

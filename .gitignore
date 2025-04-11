@@ -9,3 +9,4 @@ notebooks/.ipynb_checkpoints/
 **/*.png
 **/*.gif
 **/*.npy
+notebooks/data
