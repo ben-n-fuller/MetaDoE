@@ -2,13 +2,6 @@ module Constraints
 
 using LinearAlgebra
 
-function unit_hypercube(d::Int)
-    I_d = Matrix{Float64}(I, d, d)
-    A = vcat(I_d, -I_d)
-    b = vcat(ones(d), zeros(d))
-    return A, b
-end
-
 function hypercube(n::Int, k::Real)
     I_n = Matrix{Float64}(I, n, n)
     A = vcat(I_n, -I_n)
