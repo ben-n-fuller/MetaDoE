@@ -3,7 +3,8 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
 import phate
 import scprep
-import itertools
+from scipy.spatial import ConvexHull
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 def plot_scores(scores, min_t, max_t, name, prefix, save_fig=True):
     # Trim scores to match the animation range
@@ -35,6 +36,71 @@ def plot_scores(scores, min_t, max_t, name, prefix, save_fig=True):
     else:
         plt.show()
 
+def barycentric_embed(points):
+    n = points.shape[1]
+    
+    # Create embedding corners
+    corners = np.vstack([np.eye(n - 1), np.zeros((1, n - 1))])  # shape (n, n-1)
+    
+    # Apply affine map
+    return points @ corners
+
+def plot_polyhedron_with_sample(points, samples, title, location, elev=30, azim=225):
+    # Compute the convex hull
+    hull = ConvexHull(points)
+
+    # Create 3D plot
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Plot the vertices
+    ax.scatter(points[:, 0], points[:, 1], points[:, 2], color='blue', s=50)
+
+    # Plot the convex hull faces
+    for simplex in hull.simplices:
+        face = points[simplex]
+        poly = Poly3DCollection([face], alpha=0.5, facecolor='lightblue', edgecolor='blue')
+        ax.add_collection3d(poly)
+
+    # Scatter plot using the 3 columns as x, y, z
+    ax.scatter(samples[:, 0], samples[:, 1], samples[:, 2], s=1, alpha=0.6)
+
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.view_init(elev=elev, azim=azim)
+    plt.title(title)
+
+    plt.savefig(location)
+
+def plot_polyhedron(points, title, location, elev=30, azim=225):
+    # Define the 8 custom vertices manually
+    # points = np.load("verts.npy")
+    # Compute the convex hu ll
+    hull = ConvexHull(points)
+
+    # Create 3D plot
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Plot the vertices
+    ax.scatter(points[:, 0], points[:, 1], points[:, 2], color='blue', s=50)
+
+    # Plot the convex hull faces
+    for simplex in hull.simplices:
+        face = points[simplex]
+        poly = Poly3DCollection([face], alpha=0.5, facecolor='lightblue', edgecolor='blue')
+        ax.add_collection3d(poly)
+
+    # Set labels
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.view_init(elev=elev, azim=azim)
+
+    plt.title(title)
+    plt.tight_layout()
+    plt.savefig(location)
 
 def plot_objective(objective, name):
     x = np.linspace(-100, 100, 1000)

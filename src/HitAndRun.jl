@@ -69,7 +69,7 @@ end
 
 function get_initial_sample(A, b, lib)
     p = polyhedron(hrep(A, b), lib)
-    center, radius = chebyshevcenter(p)
+    center = center_of_mass(p)
     return center
 end
 

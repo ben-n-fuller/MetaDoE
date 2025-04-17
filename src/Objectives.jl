@@ -5,18 +5,35 @@ using ..TensorOps
 using SpecialFunctions
 using LinearAlgebra
 
-function D_mat(F)
+function D_mat(F; ε=1e-6)
+    N, p = size(F)
     M = F' * F
-    L = cholesky(M).L
-    return -2 * sum(log.(diag(L)))
+
+    # If N >= p, we can use the Cholesky decomposition
+    if N >= p 
+        L = cholesky(M).L
+        return -sum(log.(diag(L)))
+    end
+
+    # If N < p, use SVD
+    svals = svdvals(F)
+    return -sum(log.(svals[svals .> ε]))
 end
 
-function A_mat(F)
-    M = F' * F
-    L = cholesky(M).L
-    Linv = inv(L)
-    return norm(Linv, 2)^2
+function A_mat(F; ε=1e-6)
+    N, p = size(F)
+
+    if N >= p
+        L = cholesky(F' * F).L
+        Linv = inv(L)
+        return norm(Linv, 2)^2
+    end
+
+    # If N < p, use SVD
+    svals = svdvals(F)
+    return sum(1 ./ (svals[svals .> ε].^2))
 end
+
 
 function A(F)
     map(A_mat, eachslice(F; dims=1))

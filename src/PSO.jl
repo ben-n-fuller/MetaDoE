@@ -350,4 +350,14 @@ function save_history_3d(history::Vector; location = "pso.npy")
     npzwrite(location, Dict("positions" => positions, "velocities" => velocities, "scores" => scores))
 end
 
+function save_results(runner_state::RunnerState; location = "pso.npy")
+    optimizer, optimum = get_optimizer(runner_state)
+    npzwrite(location, 
+        Dict(
+            "optimizer" => optimizer,
+            "optimum" => optimum
+        )
+    )
+end
+
 end # module
