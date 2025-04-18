@@ -4,7 +4,9 @@ using LinearAlgebra
 using Polyhedra
 using HiGHS
 using LinearAlgebra
+using NPZ
 using ..Experiments
+using ..TensorOps
 
 function hypercube(n::Int, k::Real)
     I_n = Matrix{Float64}(I, n, n)
@@ -49,16 +51,12 @@ function get_vertices(experiment::Experiments.Experiment)
     return verts
 end
 
-function barycentric_embed(experiment::Experiments.Experiment)
+function save_vertices(experiment::Experiments.Experiment; location = "verts.npy")
     verts = get_vertices(experiment)
-    n = size(verts, 2)
-    corners = vcat(I(n-1), zeros(1, n-1))
-    return verts * corners
+    npzwrite(location, verts)
 end
 
-function reparameterize_simplex(A::AbstractMatrix{<:Real}, b::AbstractVector{<:Real})
-    m, K = size(A)
-
+function get_affine_isom(K)
     # Create offset vector w
     w = fill(1.0/K, K)
 
@@ -67,6 +65,14 @@ function reparameterize_simplex(A::AbstractMatrix{<:Real}, b::AbstractVector{<:R
       Matrix{Float64}(I, K-1, K-1),   # (K-1)×(K-1)
       -ones(1, K-1)                   #   1  ×(K-1)
     )
+
+    return V, w
+end
+
+function simplex(A::AbstractMatrix{<:Real}, b::AbstractVector{<:Real})
+    K = size(A, 2)
+
+    V, w = get_affine_isom(K)
 
     # Transform original constraints
     A_tilde = A * V
@@ -77,6 +83,23 @@ function reparameterize_simplex(A::AbstractMatrix{<:Real}, b::AbstractVector{<:R
     b_new = vcat(b_tilde,  w)  # (m+K)
 
     return A_new, b_new
+end
+
+function deparameterize_simplex(verts)
+    K = size(verts, 2) + 1
+
+    # Get isomorphism
+    V, w = get_affine_isom(K)
+
+    # Invert
+    simplex_coords = w .+ V * permutedims(verts, (2,1))
+
+    return permutedims(simplex_coords, (2, 1))
+end
+
+function deparameterize_simplex_batch(verts)
+    res = cat(map(deparameterize_simplex, eachslice(verts; dims=1))..., dims=3)
+    return permutedims(res, (3, 1, 2))
 end
 
 end # module

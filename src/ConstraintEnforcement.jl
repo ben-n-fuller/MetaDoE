@@ -1,6 +1,7 @@
 module ConstraintEnforcement
 
 using MLStyle
+using Random
 
 @data Constraints begin
     LinearConstraints(A::Array{Float64, 2}, b::Vector{Float64})
@@ -35,16 +36,16 @@ end
 
 @enum EnforcerType Parametric Penalty Resample
 
-function make_enforcer_func(enforcer::ConstraintEnforcer)::Function
+function make_enforcer_func(enforcer::ConstraintEnforcer; rng = Random.GLOBAL_RNG)::Function
     @match enforcer begin 
         ResampleEnforcer(constraints, initializer) =>
-            (X_prev, X_curr, t) -> resample_violating_rows(X_curr, constraints, initializer)
+            (X_prev, X_curr, velocity, t) -> resample_violating_rows(X_curr, constraints, initializer)
 
         LinearEnforcer(constraints) =>
-            (X_prev, X_curr, t) -> repair_linear_intersect(X_prev, X_curr, constraints)
+            (X_prev, X_curr, velocity, t) -> repair_linear_intersect(X_prev, X_curr, velocity, constraints; rng = rng)
 
         PenaltyEnforcer(constraints) =>
-            (X_prev, X_curr, t) -> apply_penalty(X_curr, constraints)
+            (X_prev, X_curr, velocity, t) -> apply_penalty(X_curr, constraints)
 
         _ => error("Unsupported enforcer type: $(typeof(enforcer))")
     end
@@ -105,10 +106,13 @@ function resample_violating_rows(X, constraints::LinearConstraints, initializer:
 end
 
 function repair_linear_intersect(
-    X_int::Array{Float64,3},
-    X_ext::Array{Float64,3},
-    constraints::LinearConstraints
-)
+        X_int::Array{Float64,3},
+        X_ext::Array{Float64,3},
+        velocity::Array{Float64,3},
+        constraints::LinearConstraints;
+        rng = Random.GLOBAL_RNG,
+        reverse=false
+    )
     A = constraints.A   # shape (m, K)
     b = constraints.b   # shape (m)
     
@@ -124,7 +128,7 @@ function repair_linear_intersect(
 
     # Shortcut if no violations
     if !any(violation_mask)
-        return copy(X_ext)
+        return copy(X_ext), copy(velocity)
     end
 
     # Compute projection
@@ -155,7 +159,18 @@ function repair_linear_intersect(
     X_repaired_2d = X_repaired_flat'                    # (n*N, K)
     X_repaired = reshape(X_repaired_2d, n, N, K)        # (n, N, K)
 
-    return X_repaired
+    # Update velocity
+    if reverse 
+        velocity_flat = reshape(velocity, n*N, K)'  # (K, n*N)
+        violation_mask = velocity_flat .> 0
+        new_velocity = copy(velocity_flat)
+        new_velocity[violation_mask] .= -1 .* velocity_flat[violation_mask]
+        # velocity_masked = velocity_flat[violation_mask]
+        # new_velocity[violation_mask] .= velocity_masked .+ rand(rng, size(velocity_masked)...)
+        return X_repaired, reshape(new_velocity, n, N, K)
+    end
+
+    return X_repaired, copy(velocity)
 end
 
 

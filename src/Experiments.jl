@@ -8,19 +8,20 @@ using MLStyle
 struct Experiment
     factors::Dict{String, Int64}
     constraints::ConstraintEnforcement.Constraints
+    model::Function
     N::Int64 
     K::Int64 
 end
 
-function create(factors::Vector{String}, N::Int64, K::Int64)
+function create(factors::Vector{String}, N::Int64, K::Int64, model::Function)
     factor_dict = Dict(f => i for (i, f) in enumerate(factors))
-    return Experiment(factor_dict, ConstraintEnforcement.NoConstraints(), N, K)
+    return Experiment(factor_dict, ConstraintEnforcement.NoConstraints(), model, N, K)
 end
 
-function create(N::Int64, K::Int64)
+function create(N::Int64, K::Int64, model::Function)
     factors = Dict(string(i) => i for i in 1:K)
     constraints = ConstraintEnforcement.NoConstraints()
-    Experiment(factors, constraints, N, K)
+    Experiment(factors, constraints, model, N, K)
 end
 
 function with_interval_constraint(exp::Experiment, factor::String, lower::Float64, upper::Float64)
@@ -45,14 +46,14 @@ function with_interval_constraint(exp::Experiment, factor_index::Int64, lower::F
             new_A = vcat(A, lower_bound_row', upper_bound_row')
             new_b = vcat(b, lower, -upper)
             new_constraints = ConstraintEnforcement.LinearConstraints(new_A, new_b)
-            Experiment(exp.factors, new_constraints, exp.N, exp.K)
+            Experiment(exp.factors, new_constraints, exp.model, exp.N, exp.K)
         end
 
         ConstraintEnforcement.NoConstraints() => begin
             new_A = vcat(lower_bound_row', upper_bound_row')
             new_b = [lower, -upper]
             new_constraints = ConstraintEnforcement.LinearConstraints(new_A, new_b)
-            Experiment(exp.factors, new_constraints, exp.N, exp.K)
+            Experiment(exp.factors, new_constraints, exp.model, exp.N, exp.K)
         end
 
         _ => error("Unsupported constraint type: $(typeof(exp.constraints))")
@@ -69,14 +70,14 @@ function with_factor_ratio(exp::Experiment, factor1_index::Int64, factor2_index:
             new_A = vcat(A, row')
             new_b = vcat(b, 0.0)
             new_constraints = ConstraintEnforcement.LinearConstraints(new_A, new_b)
-            Experiment(exp.factors, new_constraints, exp.N, exp.K)
+            Experiment(exp.factors, new_constraints, exp.model, exp.N, exp.K)
         end
 
         ConstraintEnforcement.NoConstraints() => begin
             new_A = row'
             new_b = [0.0]
             new_constraints = ConstraintEnforcement.LinearConstraints(new_A, new_b)
-            Experiment(exp.factors, new_constraints, exp.N, exp.K)
+            Experiment(exp.factors, new_constraints, exp.model, exp.N, exp.K)
         end
 
         _ => error("Unsupported constraint type: $(typeof(exp.constraints))")
@@ -89,14 +90,14 @@ function with_linear_constraint(exp::Experiment, constraint::Vector{Float64}, bo
             new_A = vcat(A, constraint')
             new_b = vcat(b, bound)
             new_constraints = ConstraintEnforcement.LinearConstraints(new_A, new_b)
-            Experiment(exp.factors, new_constraints, exp.N, exp.K)
+            Experiment(exp.factors, new_constraints, exp.model, exp.N, exp.K)
         end
 
         ConstraintEnforcement.NoConstraints() => begin
             new_A = constraint'
             new_b = [bound]
             new_constraints = ConstraintEnforcement.LinearConstraints(new_A, new_b)
-            Experiment(exp.factors, new_constraints, exp.N, exp.K)
+            Experiment(exp.factors, new_constraints, exp.model, exp.N, exp.K)
         end
 
         _ => error("Unsupported constraint type: $(typeof(exp.constraints))")
@@ -109,12 +110,12 @@ function with_linear_constraints(exp::Experiment, constraint::Array{Float64, 2},
             new_A = vcat(A, constraint)
             new_b = vcat(b, bound)
             new_constraints = ConstraintEnforcement.LinearConstraints(new_A, new_b)
-            Experiment(exp.factors, new_constraints, exp.N, exp.K)
+            Experiment(exp.factors, new_constraints, exp.model, exp.N, exp.K)
         end
 
         ConstraintEnforcement.NoConstraints() => begin
             new_constraints = ConstraintEnforcement.LinearConstraints(constraint, bound)
-            Experiment(exp.factors, new_constraints, exp.N, exp.K)
+            Experiment(exp.factors, new_constraints, exp.model, exp.N, exp.K)
         end
 
         _ => error("Unsupported constraint type: $(typeof(exp.constraints))")

@@ -3,6 +3,7 @@ module HitAndRun
 using Polyhedra
 using LinearAlgebra
 using Random
+using HiGHS
 
 function sample_random_direction(num_samples, n)
     v = randn(num_samples, n)
@@ -85,6 +86,20 @@ function hit_and_run(A, b, n, lib; burnin=100, rng = Random.GLOBAL_RNG, v_0 = no
     # Produce samples
     v = burnin_samples[end, :]
     return hit_and_run_start(A, b, v, n, rng)
+end
+
+function hit_and_run(A, b; burnin=100, rng = Random.GLOBAL_RNG)
+    lib = DefaultLibrary{Float64}(HiGHS.Optimizer)
+
+    # Obtain initial point
+    v_0 = get_initial_sample(A, b, lib)
+
+    # Run burn-in phase
+    burnin_samples = hit_and_run_start(A, b, v_0, burnin, rng)
+
+    # Produce samples
+    v = burnin_samples[end, :]
+    return (n) -> hit_and_run_start(A, b, v, n, rng)
 end
 
 

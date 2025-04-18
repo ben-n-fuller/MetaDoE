@@ -31,11 +31,13 @@ function create(funcs::Vector; squeeze_output=true)
     factory_base(funcs, g, squeeze_output=squeeze_output)
 end
 
-function build_full(order)
-    idx_combinations = collect(combinations(1:(order+1), 2))
+function build_full(K::Int)
     func = (x, i, j) -> (x(i) .* x(j)) .* (x(i) .- x(j))
-    (x) -> cat([func(x, i, j) for (i,j) in idx_combinations]..., dims=3)
-end
+    (x) -> begin
+      idxs = collect(combinations(1:K, 2))
+      cat([ func(x, i, j) for (i,j) in idxs ]..., dims=3)
+    end
+  end
 
 function create(;order=1, interaction_order=0, include_intercept=true, transforms=[], full=false, squeeze_output=true)
     function model_builder(X)
@@ -51,7 +53,8 @@ function create(;order=1, interaction_order=0, include_intercept=true, transform
         end
 
         if full
-            push!(funcs, build_full(interaction_order))
+            K = size(X,3)
+            push!(funcs, build_full(K))
         end
 
         # Power terms, including main effects

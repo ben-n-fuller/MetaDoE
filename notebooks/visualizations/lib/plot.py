@@ -5,6 +5,7 @@ import phate
 import scprep
 from scipy.spatial import ConvexHull
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from matplotlib.patches import Polygon
 
 def plot_scores(scores, min_t, max_t, name, prefix, save_fig=True):
     # Trim scores to match the animation range
@@ -45,7 +46,7 @@ def barycentric_embed(points):
     # Apply affine map
     return points @ corners
 
-def plot_polyhedron_with_sample(points, samples, title, location, elev=30, azim=225):
+def plot_polyhedron_sample(points, samples, title, location, elev=30, azim=225):
     # Compute the convex hull
     hull = ConvexHull(points)
 
@@ -76,7 +77,7 @@ def plot_polyhedron_with_sample(points, samples, title, location, elev=30, azim=
 def plot_polyhedron(points, title, location, elev=30, azim=225):
     # Define the 8 custom vertices manually
     # points = np.load("verts.npy")
-    # Compute the convex hu ll
+    # Compute the convex hull
     hull = ConvexHull(points)
 
     # Create 3D plot
@@ -98,6 +99,26 @@ def plot_polyhedron(points, title, location, elev=30, azim=225):
     ax.set_zlabel('Z')
     ax.view_init(elev=elev, azim=azim)
 
+    plt.title(title)
+    plt.tight_layout()
+    plt.savefig(location)
+
+def plot_polygon_samples(points, samples, title, location):
+    hull = ConvexHull(points)
+    hull_points = points[hull.vertices]
+
+    fig, ax = plt.subplots()
+
+    # Plot the convex hull as a filled polygon
+    polygon = Polygon(hull_points, closed=True, facecolor='lightblue', edgecolor='blue', alpha=0.5)
+    ax.add_patch(polygon)
+
+    # Scatter samples
+    ax.scatter(samples[:, 0], samples[:, 1], s=10, alpha=0.6, zorder=5, color='blue')
+
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_aspect('equal')
     plt.title(title)
     plt.tight_layout()
     plt.savefig(location)
@@ -170,9 +191,7 @@ def plot_particle_movement(positions_og, min_t, max_t, name, objective, fps):
     # Save as GIF
     anim.save(f"particle_motion_with_{name}.gif", writer=PillowWriter(fps=fps))
 
-def apply_phate(file_name):
-    data = np.load(file_name)
-    positions = data["positions"]
+def apply_phate(positions):
     (T, n, N, K) = positions.shape
     reshaped_positions = np.reshape(positions, (T * n, N * K))
     time = np.repeat(np.arange(T), n)

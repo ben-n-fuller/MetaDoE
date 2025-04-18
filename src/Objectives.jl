@@ -6,14 +6,17 @@ using SpecialFunctions
 using LinearAlgebra
 
 function D_mat(F; ε=1e-6)
-    N, p = size(F)
-    M = F' * F
+    # return 1/det(permutedims(F, (2, 1)) * F)
+
+
+    # N, p = size(F)
+    # M = F' * F
 
     # If N >= p, we can use the Cholesky decomposition
-    if N >= p 
-        L = cholesky(M).L
-        return -sum(log.(diag(L)))
-    end
+    # if N >= p 
+    #     L = cholesky(M).L
+    #     return -sum(log.(diag(L)))
+    # end
 
     # If N < p, use SVD
     svals = svdvals(F)
@@ -42,6 +45,8 @@ end
 function D(F)
     map(D_mat, eachslice(F; dims=1))
 end
+
+
 
 function rastrigin(X::Array{Float64, 3})
     A = 10
