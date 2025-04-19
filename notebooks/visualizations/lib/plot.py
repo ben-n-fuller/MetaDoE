@@ -37,15 +37,6 @@ def plot_scores(scores, min_t, max_t, name, prefix, save_fig=True):
     else:
         plt.show()
 
-def barycentric_embed(points):
-    n = points.shape[1]
-    
-    # Create embedding corners
-    corners = np.vstack([np.eye(n - 1), np.zeros((1, n - 1))])  # shape (n, n-1)
-    
-    # Apply affine map
-    return points @ corners
-
 def plot_polyhedron_sample(points, samples, title, location, elev=30, azim=225):
     # Compute the convex hull
     hull = ConvexHull(points)
@@ -115,6 +106,28 @@ def plot_polygon_samples(points, samples, title, location):
 
     # Scatter samples
     ax.scatter(samples[:, 0], samples[:, 1], s=10, alpha=0.6, zorder=5, color='blue')
+
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_aspect('equal')
+    plt.title(title)
+    plt.tight_layout()
+    plt.savefig(location)
+
+def plot_polygon(points, title, location):
+    hull = ConvexHull(points)
+    hull_points = points[hull.vertices]
+
+    fig, ax = plt.subplots()
+
+    # Plot the convex hull as a filled polygon
+    polygon = Polygon(hull_points, closed=True, facecolor='lightblue', edgecolor='blue', alpha=0.5)
+    ax.add_patch(polygon)
+
+    xmin, xmax = hull_points[:, 0].min(), hull_points[:, 0].max()
+    ymin, ymax = hull_points[:, 1].min(), hull_points[:, 1].max()
+    ax.set_xlim(xmin - 0.05, xmax + 0.05)
+    ax.set_ylim(ymin - 0.05, ymax + 0.05)
 
     ax.set_xlabel('X')
     ax.set_ylabel('Y')

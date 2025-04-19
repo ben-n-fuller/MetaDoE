@@ -56,19 +56,6 @@ function save_vertices(experiment::Experiments.Experiment; location = "verts.npy
     npzwrite(location, verts)
 end
 
-function get_affine_isom(K)
-    # Create offset vector w
-    w = fill(1.0/K, K)
-
-    # Build basis matrix V
-    V = vcat(
-      Matrix{Float64}(I, K-1, K-1),   # (K-1)×(K-1)
-      -ones(1, K-1)                   #   1  ×(K-1)
-    )
-
-    return V, w
-end
-
 function simplex(A::AbstractMatrix{<:Real}, b::AbstractVector{<:Real})
     K = size(A, 2)
 
@@ -85,7 +72,20 @@ function simplex(A::AbstractMatrix{<:Real}, b::AbstractVector{<:Real})
     return A_new, b_new
 end
 
-function deparameterize_simplex(verts)
+function get_affine_isom(K)
+    # Create offset vector w as simplex centroid
+    w = fill(1.0 / K, K)
+
+    # Build basis matrix V
+    V = vcat(
+      Matrix{Float64}(I, K-1, K-1),   # (K-1)×(K-1)
+      -ones(1, K-1)                   #  1×(K-1)
+    )
+
+    return V, w
+end
+
+function little_psi(verts)
     K = size(verts, 2) + 1
 
     # Get isomorphism
@@ -97,9 +97,21 @@ function deparameterize_simplex(verts)
     return permutedims(simplex_coords, (2, 1))
 end
 
-function deparameterize_simplex_batch(verts)
-    res = cat(map(deparameterize_simplex, eachslice(verts; dims=1))..., dims=3)
-    return permutedims(res, (3, 1, 2))
+function psi(X)
+    n, N, K = size(X)
+
+    # Get isomorphism
+    V, w = get_affine_isom(K + 1)
+    
+    # Reshape X and apply transformation
+    X_flat = reshape(X, n * N, K)
+    T_flat = X_flat * permutedims(V, (2, 1))
+
+    # Reshape T and apply affine offset
+    T = reshape(T_flat, n, N, K + 1)
+    T_aff = TensorOps.expand(repeat(w, 1, N)') .+ T
+    return T_aff
 end
+
 
 end # module

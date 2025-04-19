@@ -313,6 +313,7 @@ function default_logger()
     return logger
 end
 
+
 function aggregate_results(;save_world=false)
     res = []
     function logger(runner_state::RunnerState)
