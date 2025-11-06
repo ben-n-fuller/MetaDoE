@@ -10,3 +10,4 @@ notebooks/.ipynb_checkpoints/
 **/*.gif
 **/*.npy
 notebooks/data
+.vscode

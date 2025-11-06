@@ -1,90 +1,81 @@
-FROM ubuntu:latest
+# syntax=docker/dockerfile:1
 
-# Set the working directory inside the container
-WORKDIR /usr/src/app
+FROM ubuntu:22.04
 
-RUN apt-get update && \
-    apt-get install -y software-properties-common && \
-    add-apt-repository ppa:ubuntu-toolchain-r/test -y && \
-    apt-get update && \
-    apt-get install -y \
-    gcc-13 g++-13 \
-    wget \
-    curl \
-    git \
-    acl \
-    libcurl4-openssl-dev \
-    libssl-dev \
-    libxml2-dev \
-    libgit2-dev \
-    build-essential \
-    swig \
-    python3-dev \
-    cython3
+ARG DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+SHELL ["/bin/bash", "-lc"]
 
-# Ensure the latest version of libstdc++ is used
-ENV CC=/usr/bin/gcc-13
-ENV CXX=/usr/bin/g++-13
-    
-# Create the user
-RUN groupadd --gid 1001 scientist \
-    && useradd --uid 1001 --gid 1001 -m scientist \
-    && apt-get update \
-    && apt-get install -y sudo \
-    && echo scientist ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/scientist \
-    && chmod 0440 /etc/sudoers.d/scientist \
-    && chown -R scientist:scientist /usr/src/app /usr/local
-    
-# Set the user
-USER scientist
+# --- Base OS deps (kept lean) -------------------------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl wget git \
+    build-essential pkg-config \
+    libssl-dev libxml2-dev libcurl4-openssl-dev libgit2-dev \
+    sudo acl tar bzip2 jq \
+ && rm -rf /var/lib/apt/lists/*
 
-# Detect architecture and install Miniconda
-RUN ARCH=$(uname -m) && \
-    if [ "$ARCH" = "x86_64" ]; then \
-        wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh; \
-    elif [ "$ARCH" = "aarch64" ]; then \
-        wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-aarch64.sh -O ~/miniconda.sh; \
-    else \
-        echo "Unsupported architecture: $ARCH" && exit 1; \
-    fi && \
-    bash ~/miniconda.sh -b -p ~/miniconda3 && \
-    rm ~/miniconda.sh
+# --- User ---------------------------------------------------------------------
+ARG USERNAME=scientist
+ARG USER_UID=1001
+ARG USER_GID=1001
+RUN groupadd --gid ${USER_GID} ${USERNAME} \
+ && useradd  --uid ${USER_UID} --gid ${USER_GID} -m -s /bin/bash ${USERNAME} \
+ && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-${USERNAME} \
+ && chmod 0440 /etc/sudoers.d/90-${USERNAME}
 
-# Fix the libstdc++.so.6 issue for conda
-RUN rm -f /home/scientist/miniconda3/lib/libstdc++.so.6
+# --- Miniforge (conda-forge only, no Anaconda ToS) ----------------------------
+USER ${USERNAME}
+WORKDIR /home/${USERNAME}
+ENV CONDA_DIR=/home/${USERNAME}/miniconda3
+ENV PATH=${CONDA_DIR}/bin:${PATH}
 
-# Add Conda to the path
-ENV PATH="/home/scientist/miniconda3/bin:$PATH"
-
-RUN conda create -y -n meta python=3.11.2 && \
+# Pick correct Miniforge installer by arch
+RUN set -euo pipefail; \
+    arch="$(dpkg --print-architecture)"; \
+    case "$arch" in \
+      amd64)  mf_arch="x86_64" ;; \
+      arm64)  mf_arch="aarch64" ;; \
+      *) echo "Unsupported architecture: $arch" >&2; exit 1 ;; \
+    esac; \
+    url="https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-${mf_arch}.sh"; \
+    curl -fsSL "$url" -o /tmp/miniforge.sh && \
+    bash /tmp/miniforge.sh -b -p "${CONDA_DIR}" && \
+    rm -f /tmp/miniforge.sh && \
+    conda config --system --remove-key channels || true && \
+    conda config --system --add channels conda-forge && \
+    conda config --system --set channel_priority strict && \
+    conda install -y python=3.11 jupyterlab ipykernel && \
     conda clean -afy
 
-RUN /home/scientist/miniconda3/bin/conda run -n meta conda install -y notebook
+# --- Julia (fixed URL mapping) ---
+ARG JULIA_VERSION=1.11.2
+ENV JULIA_DEPOT_PATH=/home/${USERNAME}/.julia
 
-# Resolve libstdc++.so.6 issue for conda
-RUN find /home/scientist/miniconda3/envs/meta/ -name "libstdc++.so.6" -delete || true
-
-# Install additional python requirements
-COPY requirements.txt .
-RUN conda run -n meta pip install -r requirements.txt
-
-# Install Julia
-RUN curl -fsSL https://install.julialang.org | sh -s -- -y
-
-# Add Julia to the path
-ENV PATH="/home/scientist/.juliaup/bin:$PATH"
-
-# Create default environment and start notebook
-RUN mkdir -p /home/scientist/.julia/environments/default
-
-# Copy the project file, install dependencies, and attach Jupyter notebooks for Julia
-COPY Project.toml /home/scientist/.julia/environments/default/Project.toml
-COPY Manifest.toml /home/scientist/.julia/environments/default/Manifest.toml
-RUN julia -e 'using Pkg; Pkg.activate("/home/scientist/.julia/environments/default"); Pkg.instantiate(); Pkg.precompile(); using IJulia; IJulia.installkernel("Julia", "--project=/home/scientist/.julia/environments/default")'
+RUN set -euo pipefail; \
+    arch="$(dpkg --print-architecture)"; \
+    case "$arch" in \
+      amd64)  jl_dir_arch="x64";    jl_file_arch="x86_64" ;; \
+      arm64)  jl_dir_arch="aarch64"; jl_file_arch="aarch64" ;; \
+      *) echo "Unsupported architecture: $arch" >&2; exit 1 ;; \
+    esac; \
+    minor="${JULIA_VERSION%.*}"; \
+    url="https://julialang-s3.julialang.org/bin/linux/${jl_dir_arch}/${minor}/julia-${JULIA_VERSION}-linux-${jl_file_arch}.tar.gz"; \
+    echo "Downloading Julia from: ${url}"; \
+    curl -fsSL "$url" -o /tmp/julia.tar.gz; \
+    sudo mkdir -p /opt/julia; \
+    sudo tar -xzf /tmp/julia.tar.gz -C /opt/julia --strip-components=1; \
+    rm -f /tmp/julia.tar.gz; \
+    sudo ln -sf /opt/julia/bin/julia /usr/local/bin/julia
 
 
+# --- Quality of life ----------------------------------------------------------
+# Make conda available in non-login shells and prefer bash
+RUN echo 'eval "$('"'"'${CONDA_DIR}/bin/conda'"'"' shell.bash hook)"' >> ~/.bashrc \
+ && echo 'export PATH=${CONDA_DIR}/bin:$PATH' >> ~/.bashrc
 
-# Expose the port
+# VS Code devcontainer defaults expect bash, Python here, and port 8888 for Jupyter
+ENV TERM=xterm-256color
 EXPOSE 8888
 
-CMD ["bash"]
+# Workdir mirrors VS Code mount point
+WORKDIR /workspaces
