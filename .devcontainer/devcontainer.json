@@ -1,27 +1,32 @@
 {
-	"name": "Industrial Statistics Lab",
-	"dockerFile": "Dockerfile",
-	"context": "..",
-	"customizations": {
-		"vscode": {
-			"extensions": [
-				"julialang.language-julia",
-				"ms-python.python",
-				"ms-toolsai.jupyter",
-        		"GitHub.copilot",
-				"ms-toolsai.data-wrangler",
-				"yzhang.markdown-all-in-one",
-				"ms-python.vscode-pylance",
-				"ms-toolsai.datawrangler"
-			],
-			"settings": {
-				"julia.environmentPath": "/home/scientist/.julia/environments/default",
-				"python.defaultInterpreterPath": "/home/scientist/miniconda3/bin/python",
-				"terminal.integrated.defaultProfile.linux": "bash"
-			}
-		}
-	},
-	"forwardPorts": [8888],
-	"postCreateCommand": "julia -e 'using Pkg; Pkg.activate(\"/home/scientist/.julia/environments/default\"); Pkg.instantiate(); Pkg.precompile();'",
-	"postAttachCommand": "sudo setfacl -R -m u:scientist:rwx /workspaces"
+  "name": "Industrial Statistics Lab",
+  "dockerFile": "Dockerfile",
+  "context": "..",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "julialang.language-julia",
+        "ms-python.python",
+        "ms-toolsai.jupyter",
+        "GitHub.copilot",
+        "ms-toolsai.data-wrangler",
+        "yzhang.markdown-all-in-one",
+        "ms-python.vscode-pylance",
+        "ms-toolsai.datawrangler"
+      ],
+      "settings": {
+        "julia.environmentPath": "/workspaces/MetaDoE",
+        "python.defaultInterpreterPath": "/home/scientist/miniconda3/bin/python",
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "containerEnv": {
+    "JULIA_PROJECT": "/workspaces/MetaDoE",
+    "JULIA_NUM_THREADS": "auto",
+    "JULIA_DEPOT_PATH": "/home/scientist/.julia"
+  },
+
+  "forwardPorts": [8888],
+  "postCreateCommand": "julia --project=/workspaces/MetaDoE -e 'using Pkg; Pkg.instantiate(); Pkg.precompile(); Pkg.add(\"IJulia\"); using IJulia; installkernel(\"Julia (MetaDoE)\", env=Dict(\"JULIA_PROJECT\"=>\"/workspaces/MetaDoE\"))'"
 }
