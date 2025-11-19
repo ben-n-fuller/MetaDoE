@@ -6,7 +6,6 @@ ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
 SHELL ["/bin/bash", "-lc"]
 
-# --- Base OS deps (kept lean) -------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl wget git \
     build-essential pkg-config \
@@ -14,7 +13,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     sudo acl tar bzip2 jq \
  && rm -rf /var/lib/apt/lists/*
 
-# --- User ---------------------------------------------------------------------
 ARG USERNAME=scientist
 ARG USER_UID=1001
 ARG USER_GID=1001
@@ -23,7 +21,6 @@ RUN groupadd --gid ${USER_GID} ${USERNAME} \
  && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-${USERNAME} \
  && chmod 0440 /etc/sudoers.d/90-${USERNAME}
 
-# --- Miniforge (conda-forge only, no Anaconda ToS) ----------------------------
 USER ${USERNAME}
 WORKDIR /home/${USERNAME}
 ENV CONDA_DIR=/home/${USERNAME}/miniconda3
@@ -47,7 +44,6 @@ RUN set -euo pipefail; \
     conda install -y python=3.11 jupyterlab ipykernel && \
     conda clean -afy
 
-# --- Julia (fixed URL mapping) ---
 ARG JULIA_VERSION=1.11.2
 ENV JULIA_DEPOT_PATH=/home/${USERNAME}/.julia
 
@@ -68,14 +64,10 @@ RUN set -euo pipefail; \
     sudo ln -sf /opt/julia/bin/julia /usr/local/bin/julia
 
 
-# --- Quality of life ----------------------------------------------------------
-# Make conda available in non-login shells and prefer bash
 RUN echo 'eval "$('"'"'${CONDA_DIR}/bin/conda'"'"' shell.bash hook)"' >> ~/.bashrc \
  && echo 'export PATH=${CONDA_DIR}/bin:$PATH' >> ~/.bashrc
 
-# VS Code devcontainer defaults expect bash, Python here, and port 8888 for Jupyter
 ENV TERM=xterm-256color
 EXPOSE 8888
 
-# Workdir mirrors VS Code mount point
 WORKDIR /workspaces
