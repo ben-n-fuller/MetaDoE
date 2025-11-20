@@ -32,63 +32,28 @@ def mesh(xmin, xmax, ymin, ymax, n=300):
     X, Y = np.meshgrid(x, y)
     return X, Y
 
-def plot_benchmark_surface(
-    func,
-    x_range,
-    y_range,
-    dim,
-    slice_dims=(0, 1),
-    fixed_coords=None,
-    n=500,
-    title=None,
-    save_path=None,
-    dpi=300,
-):
-    x_min, x_max = x_range
-    y_min, y_max = y_range
+def plot_objective(objective, name, path_prefix=".", dpi=300):
+    x = np.linspace(-100, 100, 1000)
+    y = np.linspace(-100, 100, 1000)
+    X, Y = np.meshgrid(x, y)
+    Z = np.zeros_like(X)
 
-    x = np.linspace(x_min, x_max, n)
-    y = np.linspace(y_min, y_max, n)
-    Xg, Yg = np.meshgrid(x, y)
+    # Stack into (n_points, 3)
+    points = np.stack([X, Y, Z], axis=-1)
 
-    if fixed_coords is None:
-        base = np.zeros((n, n, dim), dtype=float)
-    else:
-        fixed_coords = np.asarray(fixed_coords, dtype=float)
-        assert fixed_coords.shape == (dim,)
-        base = np.broadcast_to(fixed_coords, (n, n, dim)).copy()
+    # Evaluate
+    F = objective(points)
 
-    i, j = slice_dims
-    base[..., i] = Xg
-    base[..., j] = Yg
-
-    Z = func(base)
-
+    # Plot
     fig = plt.figure(figsize=(8, 6))
-    ax = fig.add_subplot(111, projection="3d")
-    surf = ax.plot_surface(
-        Xg, Yg, Z,
-        rstride=2, cstride=2,
-        linewidth=0,
-        antialiased=True,
-        cmap="viridis"
-    )
-
-    z_min = np.min(Z)
-
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.set_zlabel("f(x, y)")
-
-    if title is not None:
-        ax.set_title(title)
-
-    ax.set_zlim(z_min, np.max(Z))
-
-    fig.colorbar(surf, ax=ax, shrink=0.6, aspect=10, label="Elevation")
-
-    if save_path is not None:
-        plt.savefig(save_path, dpi=dpi)
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot_surface(X, Y, F, cmap='viridis', alpha=0.8, edgecolor='none')
+    ax.set_xlabel("x₁")
+    ax.set_ylabel("x₂")
+    ax.set_zlabel(f"{name}(x₁, x₂, 0)")
+    ax.set_title(f"{name} Function Slice (x₃ = 0)")
 
     plt.tight_layout()
-    plt.show()
+    # plt.show()
+
+    plt.savefig(f"{path_prefix}/{name}_slice.png", dpi=dpi)
