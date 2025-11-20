@@ -104,7 +104,7 @@ function with_linear_constraint(exp::Experiment, constraint::Vector{Float64}, bo
     end
 end
 
-function with_linear_constraints(exp::Experiment, constraint::Array{Float64, 2}, bound::Vector{Float64})
+function with_linear_constraints(exp::Experiment, constraint::AbstractMatrix{<:Real}, bound::AbstractVector{<:Real})
     @match exp.constraints begin
         ConstraintEnforcement.LinearConstraints(A, b) => begin
             new_A = vcat(A, constraint)

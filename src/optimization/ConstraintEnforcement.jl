@@ -165,8 +165,6 @@ function repair_linear_intersect(
         violation_mask = velocity_flat .> 0
         new_velocity = copy(velocity_flat)
         new_velocity[violation_mask] .= -1 .* velocity_flat[violation_mask]
-        # velocity_masked = velocity_flat[violation_mask]
-        # new_velocity[violation_mask] .= velocity_masked .+ rand(rng, size(velocity_masked)...)
         return X_repaired, reshape(new_velocity, n, N, K)
     end
 

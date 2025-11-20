@@ -6,6 +6,39 @@ This repository contains Julia code for computational research in industrial sta
 - `/notebooks` contains exploratory Jupyter notebooks for developing code and ideas
 - `/examples` contains examples of code use and common workflows
 
+
+# Development
+## Julia
+```bash
+curl -fsSL https://install.julialang.org | sh
+juliaup add 1.11.2
+julia +1.11.2 --project=.
+```
+
+```julia
+using Pkg
+Pkg.instantiate()
+Pkg.add("IJulia")
+
+using IJulia
+IJulia.installkernel(
+    "MetaDoE";
+    env = Dict(
+        "JULIA_PROJECT"      => "@.",
+        "JULIA_NUM_THREADS"  => "8",
+    )
+)
+```
+
+## Python
+```bash
+uv venv .venv
+source .venv/bin/activate
+uv pip install -r requirements.txt
+uv pip install ipykernel
+python -m ipykernel install --user --name meta --display-name "Python (meta)"
+```
+
 # Usage
 ## Dev Containers (Recommended)
 A dev container is a portable environment that provides necessary dependencies for software development. The dev container in this project provides Jupyter notebook support for Python, Julia, and R, as well as many packages for each language. 

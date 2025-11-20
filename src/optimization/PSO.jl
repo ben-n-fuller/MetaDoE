@@ -96,7 +96,7 @@ end
 
 function update_fitness(state::ParticleState, obj::Function, t::Int64)::ParticleFitness
     # Compute scores from updated positions
-    scores = obj(state.positions, state.positions, t)
+    scores = obj(state.positions, state.positions, state.velocities, t)
 
     # Update fitness
     return ParticleFitness(scores)
@@ -188,7 +188,7 @@ function initialize_swarm(initializer::Function, objective::Objective, params::H
     velocities = initializer(params.num_particles)
     particle_state = ParticleState(particles, velocities)
     neighbors = create_adjacency_matrix(params.num_particles, params.num_neighbors)
-    scores = objective.objective(particles, particles, 0)
+    scores = objective.objective(particles, particles, velocities, 0)
     memory = ParticleMemory(particles, particles, scores, particles[argmin(scores), :, :], minimum(scores))
     fitness = ParticleFitness(scores)
     return Swarm(
@@ -218,11 +218,11 @@ function create_context(
     runner_params = default_runner_params(),
     callback = default_logger(),
     rng = Random.GLOBAL_RNG,
-    enforcer_type = ConstraintEnforcement.Parametric,
-    use_model = true)
+    enforcer_type = ConstraintEnforcement.Parametric)
+
     initializer = Designs.create_initializer(experiment.constraints, experiment.N, experiment.K; rng = rng)
     enforcer = get_enforcer(enforcer_type, experiment, initializer)
-    objective = use_model ? obj ∘ experiment.model : obj
+    objective = obj ∘ experiment.model
     new_objective = PSO.create_objective(objective, enforcer)
     swarm = PSO.initialize_swarm(initializer, new_objective, hyperparams)
     return OptimizationContext(
@@ -276,19 +276,19 @@ function get_enforcer(exp::Experiments.Experiment, enforcer_type::EnforcerType)
 end
 
 function create_objective(obj::Function)::Objective
-    return Objective((X_prev, X_curr, velocity, t) -> (X_curr, velocity), (X_prev, X_curr, t) -> obj(X_curr))
+    return Objective((X_prev, X_curr, velocity, t) -> (X_curr, velocity), (X_prev, X_curr, velocity, t) -> obj(X_curr))
 end
 
 function get_penalty_enforcer(obj::Function, constraints::ConstraintEnforcement.ConstraintEnforcer)
     enforcer_func = ConstraintEnforcement.make_enforcer_func(constraints)
-    Objective((X_prev, X_curr, velocity, t) -> (X_curr, velocity), (X_prev, X_curr, velocity, t) -> obj(X_prev) .+ enforcer_func(X_prev, X_curr, t))
+    Objective((X_prev, X_curr, velocity, t) -> (X_curr, velocity), (X_prev, X_curr, velocity, t) -> obj(X_prev) .+ enforcer_func(X_prev, X_curr, velocity, t))
 end
 
 function create_objective(obj::Function, constraints::ConstraintEnforcement.ConstraintEnforcer)::Objective
     @match constraints begin
         ConstraintEnforcement.PenaltyEnforcer(linear_constraints) => get_penalty_enforcer(obj, constraints)
-        ConstraintEnforcement.ResampleEnforcer(linear_constraints, initializer) => Objective(ConstraintEnforcement.make_enforcer_func(constraints), (X_prev, X_curr, t) -> obj(X_curr))
-        ConstraintEnforcement.LinearEnforcer(linear_constraints) => Objective(ConstraintEnforcement.make_enforcer_func(constraints), (X_prev, X_curr, t) -> obj(X_curr))
+        ConstraintEnforcement.ResampleEnforcer(linear_constraints, initializer) => Objective(ConstraintEnforcement.make_enforcer_func(constraints), (X_prev, X_curr, velocity, t) -> obj(X_curr))
+        ConstraintEnforcement.LinearEnforcer(linear_constraints) => Objective(ConstraintEnforcement.make_enforcer_func(constraints), (X_prev, X_curr, velocity, t) -> obj(X_curr))
     end
 end
 

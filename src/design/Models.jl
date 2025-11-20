@@ -119,6 +119,7 @@ export intercept, powers, interactions
 export expand, squeeze
 
 # Functions for building default model matrices
+identity = X -> X
 linear = create()
 quadratic = create(order=2)
 cubic = create(order=3)

@@ -9,5 +9,8 @@ notebooks/.ipynb_checkpoints/
 **/*.png
 **/*.gif
 **/*.npy
+**/**/__pycache__/
 notebooks/data
 .vscode
+.python-version
+uv.lock

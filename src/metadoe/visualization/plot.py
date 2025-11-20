@@ -37,62 +37,40 @@ def plot_scores(scores, min_t, max_t, name, prefix, save_fig=True):
     else:
         plt.show()
 
-def plot_polyhedron_sample(points, samples, title, location, elev=30, azim=225):
-    # Compute the convex hull
+def plot_polyhedron(points, title, location, elev=30, azim=225, dpi=300, figsize=(10, 8)):
     hull = ConvexHull(points)
 
-    # Create 3D plot
-    fig = plt.figure()
+    # Create high-resolution figure
+    fig = plt.figure(figsize=figsize, dpi=dpi)
     ax = fig.add_subplot(111, projection='3d')
 
-    # Plot the vertices
-    ax.scatter(points[:, 0], points[:, 1], points[:, 2], color='blue', s=50)
+    # Plot vertices
+    ax.scatter(points[:, 0], points[:, 1], points[:, 2],
+               color='blue', s=50)
 
-    # Plot the convex hull faces
+    # Plot faces
     for simplex in hull.simplices:
         face = points[simplex]
-        poly = Poly3DCollection([face], alpha=0.5, facecolor='lightblue', edgecolor='blue')
+        poly = Poly3DCollection(
+            [face],
+            alpha=0.5,
+            facecolor='lightblue',
+            edgecolor='blue'
+        )
         ax.add_collection3d(poly)
 
-    # Scatter plot using the 3 columns as x, y, z
-    ax.scatter(samples[:, 0], samples[:, 1], samples[:, 2], s=1, alpha=0.6)
-
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
-    ax.view_init(elev=elev, azim=azim)
-    plt.title(title)
-
-    plt.savefig(location)
-
-def plot_polyhedron(points, title, location, elev=30, azim=225):
-    # Define the 8 custom vertices manually
-    # points = np.load("verts.npy")
-    # Compute the convex hull
-    hull = ConvexHull(points)
-
-    # Create 3D plot
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-
-    # Plot the vertices
-    ax.scatter(points[:, 0], points[:, 1], points[:, 2], color='blue', s=50)
-
-    # Plot the convex hull faces
-    for simplex in hull.simplices:
-        face = points[simplex]
-        poly = Poly3DCollection([face], alpha=0.5, facecolor='lightblue', edgecolor='blue')
-        ax.add_collection3d(poly)
-
-    # Set labels
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
     ax.view_init(elev=elev, azim=azim)
 
     plt.title(title)
     plt.tight_layout()
-    plt.savefig(location)
+
+    # Save at desired resolution
+    plt.savefig(location, dpi=dpi, bbox_inches='tight')
+    plt.close(fig)
+
 
 def plot_polygon_samples(points, samples, title, location):
     hull = ConvexHull(points)
@@ -113,6 +91,67 @@ def plot_polygon_samples(points, samples, title, location):
     plt.title(title)
     plt.tight_layout()
     plt.savefig(location)
+
+def plot_polyhedron_samples(points, samples, title="My Title", location="convex_hull_3d.png",
+                        elev=30, azim=225, dpi=300, figsize=(8, 6)):
+    hull = ConvexHull(points)
+
+    fig = plt.figure(figsize=figsize, dpi=dpi)
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Plot hull faces
+    faces = []
+    for simplex in hull.simplices:
+        face = points[simplex]
+        faces.append(face)
+
+    poly = Poly3DCollection(
+        faces,
+        facecolor='lightblue',
+        edgecolor='blue',
+        alpha=0.5
+    )
+    ax.add_collection3d(poly)
+
+    # Scatter samples
+    ax.scatter(
+        samples[:, 0],
+        samples[:, 1],
+        samples[:, 2],
+        s=10,
+        alpha=0.6,
+        color='blue',
+        zorder=5
+    )
+
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+
+    ax.view_init(elev=elev, azim=azim)
+
+    # Optional: make axes roughly equal in 3D
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+    zlim = ax.get_zlim()
+    max_range = max(
+        xlim[1] - xlim[0],
+        ylim[1] - ylim[0],
+        zlim[1] - zlim[0]
+    ) / 2.0
+
+    mid_x = np.mean(xlim)
+    mid_y = np.mean(ylim)
+    mid_z = np.mean(zlim)
+
+    ax.set_xlim(mid_x - max_range, mid_x + max_range)
+    ax.set_ylim(mid_y - max_range, mid_y + max_range)
+    ax.set_zlim(mid_z - max_range, mid_z + max_range)
+
+    plt.title(title)
+    plt.tight_layout()
+    plt.savefig(location, dpi=dpi, bbox_inches='tight')
+    plt.close(fig)
 
 def plot_polygon(points, title, location):
     hull = ConvexHull(points)
