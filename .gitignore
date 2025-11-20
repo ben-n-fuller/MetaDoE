@@ -16,3 +16,4 @@ notebooks/data
 uv.lock
 notebooks/thesis/**/plots/
 notebooks/thesis/**/data/
+.venv
