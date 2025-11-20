@@ -8,10 +8,17 @@ This polyglot repository includes metaheuristic optimization code written in Jul
 ```bash
 curl -fsSL https://install.julialang.org | sh
 juliaup add 1.11.2
-julia +1.11.2 --project=.
 ```
 
 ### Create Environment
+Launch Julia from the command line:
+
+```bash
+julia +1.11.2 --project=.
+```
+
+Then run the following to start the IJulia kernel:
+
 ```julia
 using Pkg
 Pkg.instantiate()
