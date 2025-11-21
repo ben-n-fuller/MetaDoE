@@ -32,7 +32,7 @@ def mesh(xmin, xmax, ymin, ymax, n=300):
     X, Y = np.meshgrid(x, y)
     return X, Y
 
-def plot_objective(objective, name, path_prefix=".", dpi=300):
+def plot_objective(objective, name, path_prefix=".", dpi=300, font_size=16, figsize=(12, 10)):
     x = np.linspace(-100, 100, 1000)
     y = np.linspace(-100, 100, 1000)
     X, Y = np.meshgrid(x, y)
@@ -45,15 +45,21 @@ def plot_objective(objective, name, path_prefix=".", dpi=300):
     F = objective(points)
 
     # Plot
-    fig = plt.figure(figsize=(8, 6))
+    fig = plt.figure(figsize=figsize)  # no constrained_layout
     ax = fig.add_subplot(111, projection='3d')
+
     ax.plot_surface(X, Y, F, cmap='viridis', alpha=0.8, edgecolor='none')
-    ax.set_xlabel("x₁")
-    ax.set_ylabel("x₂")
-    ax.set_zlabel(f"{name}(x₁, x₂, 0)")
-    ax.set_title(f"{name} Function Slice (x₃ = 0)")
+    ax.set_title(f"{name} Function Slice (x₃ = 0)", fontsize=font_size)
 
-    plt.tight_layout()
-    # plt.show()
+    # Make room on the right for the z-axis label
+    fig.subplots_adjust(
+        left=0.05,
+        right=0.8,   # <--- pull axes left, more margin on right
+        bottom=0.08,
+        top=0.92,
+    )
 
-    plt.savefig(f"{path_prefix}/{name}_slice.png", dpi=dpi)
+    # Force a draw so layout knows true text extents
+    fig.canvas.draw()
+
+    fig.savefig(f"{path_prefix}/{name}_slice.png", dpi=dpi)

@@ -1,5 +1,5 @@
 # Introduction
-This polyglot repository includes metaheuristic optimization code written in Julia for solving constrained optimal design of experiments problems, and Python visualization code to analyze the results.
+This polyglot repository includes metaheuristic optimization code written in Julia for solving constrained optimal design of experiments problems, distributed computing tools for running large simulations and optimizations, and Python visualization code to analyze the results.
 
 
 # Quick Start
