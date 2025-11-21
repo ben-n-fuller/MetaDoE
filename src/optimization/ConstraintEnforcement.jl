@@ -19,6 +19,7 @@ struct NoConstraints <: Constraints end
     ResampleEnforcer(constraints::LinearConstraints, initializer::Function)
     LinearEnforcer(constraints::LinearConstraints)
     PenaltyEnforcer(constraints::LinearConstraints)
+    NoEnforcer()
 end
 
 struct ResampleEnforcer <: ConstraintEnforcer
@@ -34,18 +35,23 @@ struct PenaltyEnforcer <: ConstraintEnforcer
     constraints::LinearConstraints
 end
 
-@enum EnforcerType Parametric Penalty Resample
+struct NoEnforcer <: ConstraintEnforcer end
+
+@enum EnforcerType Parametric Penalty Resample None
 
 function make_enforcer_func(enforcer::ConstraintEnforcer; rng = Random.GLOBAL_RNG)::Function
     @match enforcer begin 
         ResampleEnforcer(constraints, initializer) =>
-            (X_prev, X_curr, velocity, t) -> resample_violating_rows(X_curr, constraints, initializer)
+            (X_prev, X_curr, velocity, t) -> (resample_violating_rows(X_curr, constraints, initializer), velocity)
 
         LinearEnforcer(constraints) =>
             (X_prev, X_curr, velocity, t) -> repair_linear_intersect(X_prev, X_curr, velocity, constraints; rng = rng)
 
         PenaltyEnforcer(constraints) =>
-            (X_prev, X_curr, velocity, t) -> apply_penalty(X_curr, constraints)
+            (X_prev, X_curr, velocity, t) -> (apply_penalty(X_curr, constraints), velocity)
+
+        NoEnforcer() =>
+            (X_prev, X_curr, velocity, t) -> (X_curr, velocity)
 
         _ => error("Unsupported enforcer type: $(typeof(enforcer))")
     end

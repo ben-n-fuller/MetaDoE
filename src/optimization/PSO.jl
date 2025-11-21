@@ -206,6 +206,8 @@ function get_enforcer(enforcer_type::ConstraintEnforcement.EnforcerType, experim
         return  ConstraintEnforcement.LinearEnforcer(experiment.constraints)
     elseif enforcer_type == ConstraintEnforcement.Resample 
         return ConstraintEnforcement.ResampleEnforcer(experiment.constraints, initializer)
+    elseif enforcer_type == ConstraintEnforcement.None
+        return ConstraintEnforcement.NoEnforcer()
     end
 
     return ConstraintEnforcement.PenaltyEnforcer(experiment.constraints)
@@ -265,30 +267,36 @@ function create_hyperparams(S::Int64)::HyperParams
     return create_hyperparams(S, 1/(2*log(2)), 0.5 + log(2), 0.5 + log(2), 3)
 end
 
-@enum EnforcerType LinearIntersection Resample Penalty
-function get_enforcer(exp::Experiments.Experiment, enforcer_type::EnforcerType)
-    @match enforcer_type begin 
-        LinearIntersection => ConstraintEnforcement.LinearEnforcer(exp.constraints)
-        Resample => ConstraintEnforcement.ResampleEnforcer(exp.constraints, Experiments.get_initializer(exp))
-        Penalty => ConstraintEnforcement.PenaltyEnforcer(exp.constraints)
-        _ => error("Unsupported constraint type: $(typeof(exp.constraints))")
-    end
-end
-
 function create_objective(obj::Function)::Objective
     return Objective((X_prev, X_curr, velocity, t) -> (X_curr, velocity), (X_prev, X_curr, velocity, t) -> obj(X_curr))
 end
 
 function get_penalty_enforcer(obj::Function, constraints::ConstraintEnforcement.ConstraintEnforcer)
     enforcer_func = ConstraintEnforcement.make_enforcer_func(constraints)
-    Objective((X_prev, X_curr, velocity, t) -> (X_curr, velocity), (X_prev, X_curr, velocity, t) -> obj(X_prev) .+ enforcer_func(X_prev, X_curr, velocity, t))
+    function apply_penalty(X_prev, X_curr, velocity, t)
+        new_x, _ = enforcer_func(X_prev, X_curr, velocity, t)
+        return obj(X_prev) .+ new_x
+    end
+
+    Objective(
+        (X_prev, X_curr, velocity, t) -> (X_curr, velocity), 
+        (X_prev, X_curr, velocity, t) -> apply_penalty(X_prev, X_curr, velocity, t)
+    )
 end
 
 function create_objective(obj::Function, constraints::ConstraintEnforcement.ConstraintEnforcer)::Objective
     @match constraints begin
-        ConstraintEnforcement.PenaltyEnforcer(linear_constraints) => get_penalty_enforcer(obj, constraints)
-        ConstraintEnforcement.ResampleEnforcer(linear_constraints, initializer) => Objective(ConstraintEnforcement.make_enforcer_func(constraints), (X_prev, X_curr, velocity, t) -> obj(X_curr))
-        ConstraintEnforcement.LinearEnforcer(linear_constraints) => Objective(ConstraintEnforcement.make_enforcer_func(constraints), (X_prev, X_curr, velocity, t) -> obj(X_curr))
+        ConstraintEnforcement.PenaltyEnforcer(linear_constraints) => 
+            get_penalty_enforcer(obj, constraints)
+
+        ConstraintEnforcement.ResampleEnforcer(linear_constraints, initializer) => 
+            Objective(ConstraintEnforcement.make_enforcer_func(constraints), (X_prev, X_curr, velocity, t) -> obj(X_curr))
+
+        ConstraintEnforcement.LinearEnforcer(linear_constraints) => 
+            Objective(ConstraintEnforcement.make_enforcer_func(constraints), (X_prev, X_curr, velocity, t) -> obj(X_curr))
+
+        ConstraintEnforcement.NoEnforcer() => 
+            Objective(ConstraintEnforcement.make_enforcer_func(constraints), (X_prev, X_curr, velocity, t) -> obj(X_curr))
     end
 end
 
@@ -305,18 +313,25 @@ function runner_params(max_iter, max_stag, rel_tol)
     return RunnerParams(max_iter, max_stag, rel_tol)
 end
 
+function log_runner_state(runner_state::RunnerState)
+    println("Iteration: ", runner_state.iter, " Best score: ", runner_state.swarm.memory.global_best_score)
+end
+
 function default_logger()
     function logger(runner_state::RunnerState)
-        println("Iteration: ", runner_state.iter, " Best score: ", runner_state.swarm.memory.global_best_score)
+        log_runner_state(runner_state)
         return runner_state
     end
     return logger
 end
 
 
-function aggregate_results(;save_world=false)
+function aggregate_results(;save_world=false, log_iterations=true)
     res = []
     function logger(runner_state::RunnerState)
+        if log_iterations
+            log_runner_state(runner_state)
+        end
         if save_world
             push!(res, runner_state.swarm)
         else
