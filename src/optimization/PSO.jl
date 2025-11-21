@@ -220,9 +220,10 @@ function create_context(
     runner_params = default_runner_params(),
     callback = default_logger(),
     rng = Random.GLOBAL_RNG,
-    enforcer_type = ConstraintEnforcement.Parametric)
+    enforcer_type = ConstraintEnforcement.Parametric,
+    interior_point = nothing)::OptimizationContext
 
-    initializer = Designs.create_initializer(experiment.constraints, experiment.N, experiment.K; rng = rng)
+    initializer = Designs.create_initializer(experiment.constraints, experiment.N, experiment.K; rng = rng, interior_point = interior_point)
     enforcer = get_enforcer(enforcer_type, experiment, initializer)
     objective = obj ∘ experiment.model
     new_objective = PSO.create_objective(objective, enforcer)

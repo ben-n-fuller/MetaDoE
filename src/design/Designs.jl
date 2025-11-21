@@ -26,10 +26,13 @@ function mixture_initializer(N, K; rng = Random.GLOBAL_RNG)
     (n) -> init_mixture_design(N, K, rng, n = n)
 end
 
-function constrained_initializer(N, A, b; rng = Random.GLOBAL_RNG, burnin = 1000)
+function constrained_initializer(N, A, b; rng = Random.GLOBAL_RNG, burnin = 1000, v_0 = nothing)
     lib = DefaultLibrary{Float64}(HiGHS.Optimizer)
+    if v_0 === nothing
+        v_0 = HitAndRun.get_initial_sample(A, b, lib)
+    end
+    
     K = size(A, 2)
-    v_0 = HitAndRun.get_initial_sample(A, b, lib)
     function sample_constraints(n)
         X = HitAndRun.hit_and_run(A, b, N * n, lib; v_0 = v_0, burnin = burnin, rng = rng)
         return reshape(X, (n, N, K))
@@ -37,9 +40,9 @@ function constrained_initializer(N, A, b; rng = Random.GLOBAL_RNG, burnin = 1000
     return sample_constraints
 end
 
-function create_initializer(constraints::ConstraintEnforcement.Constraints, N::Int64, K::Int64; rng = Random.GLOBAL_RNG)
+function create_initializer(constraints::ConstraintEnforcement.Constraints, N::Int64, K::Int64; rng = Random.GLOBAL_RNG, interior_point = nothing)
     @match constraints begin
-        ConstraintEnforcement.LinearConstraints(A, b) => Designs.constrained_initializer(N, constraints.A, constraints.b; rng = rng)
+        ConstraintEnforcement.LinearConstraints(A, b) => Designs.constrained_initializer(N, constraints.A, constraints.b; rng = rng, v_0 = interior_point)
         ConstraintEnforcement.NoConstraints() => Designs.hypercube_initializer(N, K; rng = rng)
         _ => error("Unsupported constraint type: $(typeof(constraints))")
     end
